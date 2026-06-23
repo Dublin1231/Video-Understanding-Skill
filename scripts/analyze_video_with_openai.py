@@ -270,6 +270,18 @@ def require_dependency(name: str) -> str:
     return path
 
 
+def extract_first_url(value: str) -> str:
+    match = re.search(r"https?://[^\s，。！？；、）)>\]\"']+", value or "")
+    return match.group(0).rstrip(".,;:!?，。！？；、")
+
+
+def normalize_source_input(value: str) -> str:
+    if is_url(value):
+        return value
+    embedded_url = extract_first_url(value)
+    return embedded_url or value
+
+
 def is_url(value: str) -> bool:
     parsed = urllib.parse.urlparse(value or "")
     return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
@@ -284,6 +296,23 @@ def normalize_webpage_video_url(url: str) -> str:
         if modal_id:
             return f"https://www.douyin.com/video/{modal_id}"
     return url
+
+
+def expand_short_video_url(url: str, timeout: float) -> str:
+    parsed = urllib.parse.urlparse(url or "")
+    host = parsed.netloc.lower()
+    short_hosts = ("v.douyin.com", "vm.tiktok.com", "vt.tiktok.com")
+    if not any(host.endswith(short_host) for short_host in short_hosts):
+        return url
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 video-understanding-skill/1.0",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return response.geturl() or url
 
 
 def build_download_failure_help(source_url: str, normalized_url: str, error_text: str) -> str:
@@ -427,16 +456,22 @@ def resolve_video_source(
     cookies_from_browser: str = "",
     auto_cookies: bool = False,
 ) -> tuple[Path, str | None]:
-    if not is_url(url_or_path):
-        video_path = Path(url_or_path).expanduser().resolve()
+    source_input = normalize_source_input(url_or_path)
+    if not is_url(source_input):
+        video_path = Path(source_input).expanduser().resolve()
         if not video_path.exists():
             raise SystemExit(f"Video not found: {video_path}")
         return video_path, None
 
-    normalized_url = normalize_webpage_video_url(url_or_path)
+    expanded_url = source_input
+    try:
+        expanded_url = expand_short_video_url(source_input, timeout)
+    except Exception:
+        expanded_url = source_input
+    normalized_url = normalize_webpage_video_url(expanded_url)
     direct_error = None
     try:
-        return download_video_url(normalized_url, temp_dir, timeout), url_or_path
+        return download_video_url(normalized_url, temp_dir, timeout), source_input
     except Exception as exc:
         direct_error = str(exc)
     if use_ytdlp:
@@ -466,7 +501,7 @@ def resolve_video_source(
                 except Exception as exc:
                     errors.append(f"{browser}: {exc}")
         joined_errors = " | ".join(errors)
-        help_text = build_download_failure_help(url_or_path, normalized_url, f"{direct_error} {joined_errors}")
+        help_text = build_download_failure_help(source_input, normalized_url, f"{direct_error} {joined_errors}")
         raise RuntimeError(
             "Unable to download video URL.\n"
             f"Direct download error: {direct_error}\n"
@@ -474,7 +509,7 @@ def resolve_video_source(
             "Recovery suggestions:\n"
             f"{help_text}"
         )
-    help_text = build_download_failure_help(url_or_path, normalized_url, str(direct_error))
+    help_text = build_download_failure_help(source_input, normalized_url, str(direct_error))
     raise RuntimeError(
         "Unable to download direct video URL.\n"
         f"Direct download error: {direct_error}\n"
