@@ -112,15 +112,23 @@ Text recognized from the visible document region is preserved here.
 
 ```mermaid
 flowchart LR
-  A["Local video"] --> B["Extract audio"]
-  A --> C["Sample frames"]
-  B --> D["Transcribe speech"]
-  C --> E["OCR and visual-change detection"]
-  D --> F["Timeline evidence"]
+  A["Local path / direct video URL / webpage video link"] --> B{"Resolve source"}
+  B -->|"Local file"| C["Read video"]
+  B -->|"Direct media URL"| D["Download video file"]
+  B -->|"Webpage link"| E["Download via yt-dlp"]
+  C --> F["Extract audio"]
+  D --> F
   E --> F
-  F --> G["Video report"]
-  F --> H["Document Markdown"]
-  F --> I["Speech knowledge Markdown"]
+  C --> G["Sample frames"]
+  D --> G
+  E --> G
+  F --> H["Transcribe speech / local Whisper fallback"]
+  G --> I["Visual-change detection + OCR"]
+  H --> J["Timeline evidence"]
+  I --> J
+  J --> K["Video report"]
+  J --> L["Document Markdown"]
+  J --> M["Speech knowledge Markdown"]
 ```
 
 ---

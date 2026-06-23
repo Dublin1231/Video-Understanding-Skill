@@ -58,7 +58,13 @@ Tell the user these choices when their goal is unclear:
 
 ## Workflow
 
-### 1. Inspect the environment
+### 1. Resolve the video source
+
+Accept local files, direct media URLs, and webpage video links. For URLs, the script first attempts direct media download, then falls back to `yt-dlp` when the URL is a webpage and `yt-dlp` is installed.
+
+If a webpage cannot be downloaded because of login, permissions, DRM, or site restrictions, explain the blocker and ask the user for a local file, cookies-enabled download, or a direct media URL.
+
+### 2. Inspect the environment
 
 Run `scripts/capability_probe.py` before choosing an approach. It reports:
 
@@ -70,7 +76,7 @@ Run `scripts/capability_probe.py` before choosing an approach. It reports:
 
 Do not assume local media tooling exists.
 
-### 2. Prefer the hybrid OpenAI API path when available
+### 3. Prefer the hybrid OpenAI API path when available
 
 If `OPENAI_API_KEY` is set and local extraction dependencies exist, use:
 
@@ -93,7 +99,7 @@ This path:
 
 Read [references/openai-hybrid-path.md](references/openai-hybrid-path.md) when using this path.
 
-### 3. Prefer direct multimodal analysis when actually available
+### 4. Prefer direct multimodal analysis when actually available
 
 If the current environment can send video or prebuilt multimodal inputs to the model, prefer that path for the first pass. Use it when the user wants:
 
@@ -106,7 +112,7 @@ Even on the direct path, still request a structured answer with timestamps or ti
 
 Read [references/native-openai-path.md](references/native-openai-path.md) when using this path.
 
-### 4. Use the timeline pipeline when direct video input is unavailable
+### 5. Use the timeline pipeline when direct video input is unavailable
 
 If direct video input is not available, build a time-aligned artifact set instead of relying on one screenshot.
 
@@ -122,7 +128,7 @@ This is the default path for most local Codex environments.
 
 Read [references/timeline-pipeline.md](references/timeline-pipeline.md) when using this path.
 
-### 5. Match the output to the request
+### 6. Match the output to the request
 
 Possible deliverables:
 
