@@ -170,6 +170,48 @@ Beginners can start with the defaults. If you are not sure which model, gateway,
 
 ---
 
+## 🔑 API Key And Base URL Configuration
+
+If you only use `--speech-only` with local Whisper, you do not need a remote API setup.  
+If you want full video understanding reports, remote transcription, or multimodal synthesis, configure your key and base URL as local environment variables.
+
+### Windows PowerShell
+
+Temporary setup for the current PowerShell window:
+
+```powershell
+$env:OPENAI_API_KEY = "<your_key>"
+$env:OPENAI_BASE_URL = "<your_base_url>"
+```
+
+Persistent setup for the current Windows user:
+
+```powershell
+[Environment]::SetEnvironmentVariable("OPENAI_API_KEY", "<your_key>", "User")
+[Environment]::SetEnvironmentVariable("OPENAI_BASE_URL", "<your_base_url>", "User")
+```
+
+Restart your terminal after setting persistent environment variables.
+
+### macOS / Linux
+
+Temporary setup for the current shell:
+
+```bash
+export OPENAI_API_KEY="<your_key>"
+export OPENAI_BASE_URL="<your_base_url>"
+```
+
+If you use the official API, you usually only need the key. If you use a compatible gateway or custom service, configure the base URL as well.
+
+### Safety Tips
+
+- Never write real secrets into README files, scripts, screenshots, or Git commits.
+- If you are unsure which base URL to use, give your provider documentation to an AI assistant and ask it to verify the setup.
+- After configuration, run `python scripts/capability_probe.py` to check whether the environment is detected correctly.
+
+---
+
 ## 🚀 Quick Start
 
 Probe local capabilities:

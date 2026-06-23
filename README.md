@@ -170,6 +170,48 @@ python -m pip install openai faster-whisper pillow pytesseract
 
 ---
 
+## 🔑 密钥与接口地址配置
+
+如果你只使用 `--speech-only` 加本地 Whisper，可以不配置远程接口。  
+如果你要生成完整视频理解报告，或者使用远程转写/多模态模型，需要在本机环境变量中配置密钥和接口地址。
+
+### Windows PowerShell
+
+临时配置，只对当前 PowerShell 窗口有效：
+
+```powershell
+$env:OPENAI_API_KEY = "<你的密钥>"
+$env:OPENAI_BASE_URL = "<你的接口地址>"
+```
+
+长期配置，写入当前用户环境变量：
+
+```powershell
+[Environment]::SetEnvironmentVariable("OPENAI_API_KEY", "<你的密钥>", "User")
+[Environment]::SetEnvironmentVariable("OPENAI_BASE_URL", "<你的接口地址>", "User")
+```
+
+设置后重新打开终端，再运行脚本。
+
+### macOS / Linux
+
+临时配置，只对当前终端有效：
+
+```bash
+export OPENAI_API_KEY="<你的密钥>"
+export OPENAI_BASE_URL="<你的接口地址>"
+```
+
+如果使用官方接口，通常只需要配置密钥；如果使用兼容网关或自定义服务，再配置接口地址。
+
+### 配置建议
+
+- 不要把真实密钥写进 README、脚本、聊天记录截图或 Git 提交。
+- 不确定接口地址怎么填时，把你的服务商文档发给 AI，让它帮你确认。
+- 配置完成后，可以先运行 `python scripts/capability_probe.py` 检查环境是否识别成功。
+
+---
+
 ## 🚀 快速开始
 
 检查本地能力：
