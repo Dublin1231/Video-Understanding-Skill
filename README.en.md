@@ -41,6 +41,25 @@ Do not commit local credentials, private configuration, downloaded models, binar
 
 ---
 
+## 🌱 Beginner-Friendly Installation
+
+If you are not comfortable with command-line setup, just give this repository link to your AI assistant or Codex and ask it to install the skill for you:
+
+```text
+https://github.com/Dublin1231/Video-Understanding-Skill
+```
+
+Example prompt:
+
+```text
+Please install this Codex skill for me and check whether the local dependencies are available:
+https://github.com/Dublin1231/Video-Understanding-Skill
+```
+
+The assistant can place the skill in the right directory and check Python, FFmpeg, local transcription, and OCR dependencies for your machine.
+
+---
+
 ## 📸 Preview
 
 ### 🎙️ Speech Knowledge Markdown

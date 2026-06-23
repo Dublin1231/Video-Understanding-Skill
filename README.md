@@ -41,6 +41,25 @@
 
 ---
 
+## 🌱 小白安装方式
+
+如果你不熟悉命令行，可以直接把这个仓库链接发给你的 AI 助手或 Codex，让它帮你安装：
+
+```text
+https://github.com/Dublin1231/Video-Understanding-Skill
+```
+
+你可以这样说：
+
+```text
+请帮我安装这个 Codex skill，并检查本地依赖是否可用：
+https://github.com/Dublin1231/Video-Understanding-Skill
+```
+
+AI 会帮你把 skill 放到正确目录，并根据你的电脑环境检查 Python、FFmpeg、本地转写和 OCR 依赖。
+
+---
+
 ## 📸 效果预览
 
 ### 🎙️ 口播整理成知识 Markdown
