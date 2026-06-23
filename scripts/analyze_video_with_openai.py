@@ -328,6 +328,9 @@ def build_download_failure_help(source_url: str, normalized_url: str, error_text
         tips.append("当前站点要求 fresh cookies：请先在浏览器里打开并确认能播放，再重试 `--cookies-from-browser chrome` 或 `--cookies-from-browser edge`。")
     if "could not copy chrome cookie database" in lower_error:
         tips.append("浏览器 cookie 数据库暂时无法复制：请完全退出 Chrome/Edge 后重试，或导出 Netscape 格式 `cookies.txt` 后用 `--cookies <cookies.txt>`。")
+    if "failed to decrypt with dpapi" in lower_error:
+        tips.append("Windows DPAPI 没能解密浏览器 cookies：这通常和 Chromium 的本机加密/运行身份有关。最稳的做法是用浏览器扩展导出 Netscape 格式 `cookies.txt`，再用 `--cookies <cookies.txt>`。")
+        tips.append("如果你有 Firefox 登录态，也可以尝试 `--cookies-from-browser firefox`，它有时能避开 Chromium DPAPI 限制。")
     if "could not find firefox cookies database" in lower_error:
         tips.append("没有找到 Firefox cookie 配置；如果你不用 Firefox，可以忽略这一项。")
     if "unsupported url" in lower_error:
