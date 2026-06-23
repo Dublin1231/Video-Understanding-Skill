@@ -1,0 +1,4 @@
+interface:
+  display_name: "Video Understanding"
+  short_description: "Understand speech and visual events from video"
+  default_prompt: "Use $video-understanding to analyze this video and summarize what is said and shown over time."

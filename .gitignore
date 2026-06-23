@@ -1,0 +1,40 @@
+# Secrets and local environment
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+*secret*
+*token*
+
+# Local runtime caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Generated reports and media artifacts
+outputs/
+reports/
+frames/
+audio/
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.wav
+*.mp3
+*.m4a
+
+# Large local dependencies and downloaded assets
+vendor/
+models/
+tools/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
