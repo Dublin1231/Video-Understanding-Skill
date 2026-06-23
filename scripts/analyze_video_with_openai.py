@@ -275,6 +275,39 @@ def is_url(value: str) -> bool:
     return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
 
+def normalize_webpage_video_url(url: str) -> str:
+    parsed = urllib.parse.urlparse(url or "")
+    host = parsed.netloc.lower()
+    query = urllib.parse.parse_qs(parsed.query)
+    if host.endswith("douyin.com") and parsed.path.rstrip("/") == "/jingxuan":
+        modal_id = (query.get("modal_id") or [""])[0].strip()
+        if modal_id:
+            return f"https://www.douyin.com/video/{modal_id}"
+    return url
+
+
+def build_download_failure_help(source_url: str, normalized_url: str, error_text: str) -> str:
+    lower_error = error_text.lower()
+    parsed = urllib.parse.urlparse(normalized_url or source_url or "")
+    host = parsed.netloc.lower()
+    tips = []
+    if normalized_url != source_url:
+        tips.append(f"已将网页入口规范化为可下载器识别的视频页：{normalized_url}")
+    if any(site in host for site in ("douyin.com", "iesdouyin.com", "tiktok.com")):
+        tips.append("抖音/短视频平台通常需要新鲜浏览器登录态，公开网页能打开不代表下载器能直接取到视频。")
+    if "fresh cookies" in lower_error:
+        tips.append("当前站点要求 fresh cookies：请先在浏览器里打开并确认能播放，再重试 `--cookies-from-browser chrome` 或 `--cookies-from-browser edge`。")
+    if "could not copy chrome cookie database" in lower_error:
+        tips.append("浏览器 cookie 数据库暂时无法复制：请完全退出 Chrome/Edge 后重试，或导出 Netscape 格式 `cookies.txt` 后用 `--cookies <cookies.txt>`。")
+    if "could not find firefox cookies database" in lower_error:
+        tips.append("没有找到 Firefox cookie 配置；如果你不用 Firefox，可以忽略这一项。")
+    if "unsupported url" in lower_error:
+        tips.append("当前 URL 不是下载器支持的页面形态；可以尝试复制分享链接、标准视频页链接，或先下载成本地 mp4。")
+    if not tips:
+        tips.append("可以尝试提供本地视频文件、直连 mp4 地址，或带登录态的 cookies.txt。")
+    return "\n".join(f"- {tip}" for tip in tips)
+
+
 def extension_from_url_or_content_type(url: str, content_type: str | None) -> str:
     suffix = Path(urllib.parse.urlparse(url).path).suffix.lower()
     if suffix in {".mp4", ".mov", ".mkv", ".webm", ".m4v", ".avi"}:
@@ -400,9 +433,10 @@ def resolve_video_source(
             raise SystemExit(f"Video not found: {video_path}")
         return video_path, None
 
+    normalized_url = normalize_webpage_video_url(url_or_path)
     direct_error = None
     try:
-        return download_video_url(url_or_path, temp_dir, timeout), url_or_path
+        return download_video_url(normalized_url, temp_dir, timeout), url_or_path
     except Exception as exc:
         direct_error = str(exc)
     if use_ytdlp:
@@ -410,7 +444,7 @@ def resolve_video_source(
         initial_browser = "" if cookies_from_browser.lower() == "auto" else cookies_from_browser
         try:
             return download_video_with_ytdlp(
-                url_or_path,
+                normalized_url,
                 temp_dir,
                 timeout,
                 cookies=cookies,
@@ -424,7 +458,7 @@ def resolve_video_source(
                     continue
                 try:
                     return download_video_with_ytdlp(
-                        url_or_path,
+                        normalized_url,
                         temp_dir,
                         timeout,
                         cookies_from_browser=browser,
@@ -432,8 +466,21 @@ def resolve_video_source(
                 except Exception as exc:
                     errors.append(f"{browser}: {exc}")
         joined_errors = " | ".join(errors)
-        raise RuntimeError(f"Unable to download video URL. Direct download error: {direct_error}. yt-dlp error: {joined_errors}")
-    raise RuntimeError(f"Unable to download direct video URL: {direct_error}")
+        help_text = build_download_failure_help(url_or_path, normalized_url, f"{direct_error} {joined_errors}")
+        raise RuntimeError(
+            "Unable to download video URL.\n"
+            f"Direct download error: {direct_error}\n"
+            f"yt-dlp error: {joined_errors}\n"
+            "Recovery suggestions:\n"
+            f"{help_text}"
+        )
+    help_text = build_download_failure_help(url_or_path, normalized_url, str(direct_error))
+    raise RuntimeError(
+        "Unable to download direct video URL.\n"
+        f"Direct download error: {direct_error}\n"
+        "Recovery suggestions:\n"
+        f"{help_text}"
+    )
 
 
 def require_openai():
