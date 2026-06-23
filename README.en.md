@@ -97,7 +97,7 @@ Text recognized from the visible document region is preserved here.
 
 | Feature | Description |
 | --- | --- |
-| 🔗 Video URL analysis | Supports local video paths and direct downloadable video URLs |
+| 🔗 Video URL analysis | Supports local video paths, direct media URLs, and webpage video links supported by `yt-dlp` |
 | 🎙️ Speech transcription | Extract speaker, creator, or lecture audio from a video |
 | 🧠 Speech to knowledge Markdown | Turn transcripts into core ideas, workflows, cases, and timestamped excerpts |
 | 🎞️ Change-aware sampling | Sample frames based on page, layout, title, and chapter-navigation changes |
@@ -133,6 +133,7 @@ flowchart LR
 | FFmpeg | Required | Extract audio and frames |
 | `openai` | Optional | Remote transcription and multimodal synthesis |
 | `faster-whisper` | Optional | Local offline transcription |
+| `yt-dlp` | Optional | Download webpage video links |
 | `pillow` | Optional | Image processing |
 | `pytesseract` | Optional | OCR |
 | Tesseract language data | Optional | Better Chinese + English OCR |
@@ -140,7 +141,7 @@ flowchart LR
 Install Python packages:
 
 ```powershell
-python -m pip install openai faster-whisper pillow pytesseract
+python -m pip install openai faster-whisper yt-dlp pillow pytesseract
 ```
 
 The first local transcription run may download a model into `models/`. That directory is ignored by Git.
@@ -231,7 +232,7 @@ python scripts/analyze_video_with_openai.py "C:\path\to\video.mp4" `
   --report-json "outputs\video-report.json"
 ```
 
-You can also pass a direct downloadable video URL:
+You can also pass a video URL:
 
 ```powershell
 python scripts/analyze_video_with_openai.py "https://example.com/video.mp4" `
@@ -240,7 +241,9 @@ python scripts/analyze_video_with_openai.py "https://example.com/video.mp4" `
   --report-md "outputs\video-report.md"
 ```
 
-Note: this must be a direct video file URL. For YouTube, Bilibili, course pages, or other webpage URLs, download the video first or ask an AI assistant to convert it into a local video file.
+The script first tries direct media download. If the URL is a webpage, it automatically falls back to `yt-dlp` when installed. Actual site support depends on `yt-dlp`, network access, login/cookies, course permissions, and whether the video is DRM-protected.
+
+If webpage download fails, give the link to an AI assistant and ask it to install/configure `yt-dlp`, or download the video locally before analysis.
 
 ---
 

@@ -97,7 +97,7 @@ AI 会帮你把 skill 放到正确目录，并根据你的电脑环境检查 Pyt
 
 | 功能 | 说明 |
 | --- | --- |
-| 🔗 视频链接分析 | 支持本地视频路径，也支持直接可下载的视频 URL |
+| 🔗 视频链接分析 | 支持本地视频路径、直接视频 URL，以及 `yt-dlp` 可下载的网页视频链接 |
 | 🎙️ 口播转写 | 从视频音轨中提取讲解者、博主或课程口播 |
 | 🧠 口播知识 Markdown | 将转写内容整理成核心观点、方法流程、案例和原文摘录 |
 | 🎞️ 变化即采样 | 根据页面变化、版式变化、标题变化和章节导航选择采样点 |
@@ -133,6 +133,7 @@ flowchart LR
 | FFmpeg | 必需 | 抽取音频和视频帧 |
 | `openai` | 可选 | 远程转写和多模态总结 |
 | `faster-whisper` | 可选 | 本地离线转写 |
+| `yt-dlp` | 可选 | 下载网页视频链接 |
 | `pillow` | 可选 | 图像处理 |
 | `pytesseract` | 可选 | OCR |
 | Tesseract 语言数据 | 可选 | 改善中英文 OCR |
@@ -140,7 +141,7 @@ flowchart LR
 安装 Python 依赖：
 
 ```powershell
-python -m pip install openai faster-whisper pillow pytesseract
+python -m pip install openai faster-whisper yt-dlp pillow pytesseract
 ```
 
 第一次运行本地转写时，模型可能会下载到 `models/`。该目录已被 Git 忽略。
@@ -231,7 +232,7 @@ python scripts/analyze_video_with_openai.py "C:\path\to\video.mp4" `
   --report-json "outputs\video-report.json"
 ```
 
-也可以直接传入可下载的视频链接：
+也可以直接传入视频链接：
 
 ```powershell
 python scripts/analyze_video_with_openai.py "https://example.com/video.mp4" `
@@ -240,7 +241,9 @@ python scripts/analyze_video_with_openai.py "https://example.com/video.mp4" `
   --report-md "outputs\video-report.md"
 ```
 
-说明：这里需要是直接视频文件链接。如果是 YouTube、B站、课程网页等页面链接，请先下载视频，或让 AI 帮你转换成可分析的本地视频文件。
+脚本会先尝试直链下载；如果链接是网页，会在安装了 `yt-dlp` 的情况下自动尝试下载视频。实际支持范围取决于 `yt-dlp`、网络环境、登录状态、课程权限和视频是否受 DRM 保护。
+
+如果网页链接下载失败，可以把链接发给 AI，让它帮你安装/配置 `yt-dlp`，或让它先把视频下载成本地文件后再分析。
 
 ---
 

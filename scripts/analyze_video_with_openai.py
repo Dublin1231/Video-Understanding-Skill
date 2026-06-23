@@ -52,7 +52,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Extract representative frames from a video and analyze them with OpenAI Responses."
     )
-    parser.add_argument("video", help="Path or direct downloadable URL to the source video")
+    parser.add_argument("video", help="Path, direct video URL, or supported webpage video URL")
     parser.add_argument(
         "--question",
         default="Summarize what is said and shown over time.",
@@ -78,7 +78,12 @@ def parse_args() -> argparse.Namespace:
         "--download-timeout",
         type=float,
         default=120.0,
-        help="HTTP timeout in seconds when downloading a direct video URL",
+        help="HTTP timeout in seconds when downloading video URLs",
+    )
+    parser.add_argument(
+        "--no-yt-dlp",
+        action="store_true",
+        help="Disable yt-dlp fallback for webpage video URLs.",
     )
     parser.add_argument(
         "--transcribe-model",
@@ -291,6 +296,68 @@ def download_video_url(url: str, temp_dir: Path, timeout: float) -> Path:
     if not video_path.exists() or video_path.stat().st_size == 0:
         raise RuntimeError("Downloaded video URL produced an empty file.")
     return video_path
+
+
+def find_downloaded_video(temp_dir: Path) -> Path | None:
+    candidates = []
+    for path in temp_dir.iterdir():
+        if path.is_file() and path.suffix.lower() in {".mp4", ".mov", ".mkv", ".webm", ".m4v", ".avi"}:
+            candidates.append(path)
+    if not candidates:
+        return None
+    return max(candidates, key=lambda item: item.stat().st_size)
+
+
+def download_video_with_ytdlp(url: str, temp_dir: Path, timeout: float) -> Path:
+    ytdlp = shutil.which("yt-dlp") or shutil.which("yt-dlp.exe")
+    if not ytdlp:
+        raise RuntimeError(
+            "This URL is not a direct media file and yt-dlp is not installed. "
+            "Install yt-dlp or download the video locally first."
+        )
+    output_template = str(temp_dir / "downloaded-video.%(ext)s")
+    cmd = [
+        ytdlp,
+        "--no-playlist",
+        "--no-progress",
+        "--socket-timeout",
+        str(max(1, int(timeout))),
+        "-f",
+        "bv*+ba/best",
+        "--merge-output-format",
+        "mp4",
+        "-o",
+        output_template,
+        url,
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        error = (result.stderr or result.stdout or "").strip()
+        raise RuntimeError(f"yt-dlp failed to download the video URL: {error}")
+    video_path = find_downloaded_video(temp_dir)
+    if not video_path:
+        raise RuntimeError("yt-dlp completed but no downloaded video file was found.")
+    return video_path
+
+
+def resolve_video_source(url_or_path: str, temp_dir: Path, timeout: float, use_ytdlp: bool = True) -> tuple[Path, str | None]:
+    if not is_url(url_or_path):
+        video_path = Path(url_or_path).expanduser().resolve()
+        if not video_path.exists():
+            raise SystemExit(f"Video not found: {video_path}")
+        return video_path, None
+
+    direct_error = None
+    try:
+        return download_video_url(url_or_path, temp_dir, timeout), url_or_path
+    except Exception as exc:
+        direct_error = str(exc)
+    if use_ytdlp:
+        try:
+            return download_video_with_ytdlp(url_or_path, temp_dir, timeout), url_or_path
+        except Exception as exc:
+            raise RuntimeError(f"Unable to download video URL. Direct download error: {direct_error}. yt-dlp error: {exc}")
+    raise RuntimeError(f"Unable to download direct video URL: {direct_error}")
 
 
 def require_openai():
@@ -3489,13 +3556,12 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix="video-understanding-source-") as source_tmp:
         source_temp_dir = Path(source_tmp)
-        source_url = source_video if is_url(source_video) else None
-        if source_url:
-            video_path = download_video_url(source_url, source_temp_dir, args.download_timeout)
-        else:
-            video_path = Path(source_video).expanduser().resolve()
-            if not video_path.exists():
-                raise SystemExit(f"Video not found: {video_path}")
+        video_path, source_url = resolve_video_source(
+            source_video,
+            source_temp_dir,
+            args.download_timeout,
+            use_ytdlp=not args.no_yt_dlp,
+        )
 
         result = analyze(
             video_path=video_path,

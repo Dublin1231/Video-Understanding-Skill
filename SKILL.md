@@ -1,6 +1,6 @@
 ---
 name: "video-understanding"
-description: "Use when Codex needs to understand what a video says and what happens on screen over time from local files such as .mp4, .mov, .mkv, .webm, direct downloadable video URLs, or a folder of extracted clips/frames. Trigger this skill when the user sends a video file path, a direct video URL, or asks to transcribe, summarize, OCR, extract documents from, or convert a video into knowledge Markdown."
+description: "Use when Codex needs to understand what a video says and what happens on screen over time from local files such as .mp4, .mov, .mkv, .webm, video URLs, webpage video links supported by yt-dlp, or a folder of extracted clips/frames. Trigger this skill when the user sends a video file path, a video URL, or asks to transcribe, summarize, OCR, extract documents from, or convert a video into knowledge Markdown."
 ---
 
 # Video Understanding
@@ -17,9 +17,10 @@ Use this skill automatically when the user provides:
 
 - a local video path ending in `.mp4`, `.mov`, `.mkv`, `.webm`, `.m4v`, or `.avi`
 - a direct downloadable video URL ending in a common video extension
+- a webpage video link that can be downloaded by `yt-dlp`
 - a request such as "analyze this video", "summarize this video", "turn this video into notes", "extract the document shown in this video", or "transcribe the speaker"
 
-Direct media URLs can be passed to `scripts/analyze_video_with_openai.py` directly. Web pages such as YouTube, Bilibili, X, or course pages may not be direct video files; download them first or provide a direct media URL.
+Video URLs can be passed to `scripts/analyze_video_with_openai.py` directly. The script first tries direct media download; if the URL is a webpage, it falls back to `yt-dlp` when installed. Site support depends on `yt-dlp`, network access, cookies/login status, DRM, and the user's permission to download the video.
 
 ## Choose The Right Mode
 
@@ -201,6 +202,8 @@ Useful flags:
 - `--speech-only` to skip visual sampling, OCR, document extraction, and model synthesis when the goal is only speech-to-knowledge Markdown
 - `--speech-md-mode literal|knowledge` to choose whether speech Markdown is timestamped transcript (`literal`) or generated knowledge-note sections with timestamped excerpts (`knowledge`, default)
 - `--api-timeout <seconds>` to raise the HTTP timeout for larger videos or slower endpoints
+- `--download-timeout <seconds>` to raise the timeout for direct URL or `yt-dlp` downloads
+- `--no-yt-dlp` to disable webpage-video download fallback and only accept local files or direct media URLs
 - `--local-whisper-model <name-or-path>` to select the local fallback ASR model
 
 Long-video coverage notes:
