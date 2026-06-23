@@ -93,7 +93,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--cookies-from-browser",
         default="",
-        help="Optional browser name for yt-dlp cookies, for example: chrome, edge, firefox.",
+        help="Optional browser name for yt-dlp cookies, for example: chrome, edge, firefox, or auto.",
+    )
+    parser.add_argument(
+        "--auto-cookies",
+        action="store_true",
+        help="When a webpage video download needs cookies, automatically try common local browsers.",
     )
     parser.add_argument(
         "--transcribe-model",
@@ -370,6 +375,16 @@ def download_video_with_ytdlp(
     return video_path
 
 
+def candidate_cookie_browsers(cookies_from_browser: str, auto_cookies: bool) -> list[str]:
+    if cookies_from_browser:
+        if cookies_from_browser.lower() == "auto":
+            return ["chrome", "edge", "firefox"]
+        return [cookies_from_browser]
+    if auto_cookies:
+        return ["chrome", "edge", "firefox"]
+    return [""]
+
+
 def resolve_video_source(
     url_or_path: str,
     temp_dir: Path,
@@ -377,6 +392,7 @@ def resolve_video_source(
     use_ytdlp: bool = True,
     cookies: str = "",
     cookies_from_browser: str = "",
+    auto_cookies: bool = False,
 ) -> tuple[Path, str | None]:
     if not is_url(url_or_path):
         video_path = Path(url_or_path).expanduser().resolve()
@@ -390,16 +406,33 @@ def resolve_video_source(
     except Exception as exc:
         direct_error = str(exc)
     if use_ytdlp:
+        errors = []
+        initial_browser = "" if cookies_from_browser.lower() == "auto" else cookies_from_browser
         try:
             return download_video_with_ytdlp(
                 url_or_path,
                 temp_dir,
                 timeout,
                 cookies=cookies,
-                cookies_from_browser=cookies_from_browser,
+                cookies_from_browser=initial_browser,
             ), url_or_path
         except Exception as exc:
-            raise RuntimeError(f"Unable to download video URL. Direct download error: {direct_error}. yt-dlp error: {exc}")
+            errors.append(str(exc))
+        if not cookies:
+            for browser in candidate_cookie_browsers(cookies_from_browser, auto_cookies):
+                if not browser or browser == initial_browser:
+                    continue
+                try:
+                    return download_video_with_ytdlp(
+                        url_or_path,
+                        temp_dir,
+                        timeout,
+                        cookies_from_browser=browser,
+                    ), url_or_path
+                except Exception as exc:
+                    errors.append(f"{browser}: {exc}")
+        joined_errors = " | ".join(errors)
+        raise RuntimeError(f"Unable to download video URL. Direct download error: {direct_error}. yt-dlp error: {joined_errors}")
     raise RuntimeError(f"Unable to download direct video URL: {direct_error}")
 
 
@@ -3606,6 +3639,7 @@ def main() -> int:
             use_ytdlp=not args.no_yt_dlp,
             cookies=args.cookies,
             cookies_from_browser=args.cookies_from_browser,
+            auto_cookies=args.auto_cookies,
         )
 
         result = analyze(

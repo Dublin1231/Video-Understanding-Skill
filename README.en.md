@@ -271,6 +271,17 @@ python scripts/analyze_video_with_openai.py "https://example.com/video-page" `
   --extract-speech-md "outputs\speech-knowledge.md"
 ```
 
+If you are not sure which browser to use, let the script try common browsers automatically:
+
+```powershell
+python scripts/analyze_video_with_openai.py "https://example.com/video-page" `
+  --cookies-from-browser auto `
+  --speech-only `
+  --extract-speech-md "outputs\speech-knowledge.md"
+```
+
+You can also use `--auto-cookies` to try browser cookies automatically after a normal webpage download fails.
+
 If browser cookies cannot be read while the browser is running, close the browser and retry, or export a `cookies.txt` file.
 
 ---

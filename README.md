@@ -271,6 +271,17 @@ python scripts/analyze_video_with_openai.py "https://v.douyin.com/xxxx/" `
   --extract-speech-md "outputs\speech-knowledge.md"
 ```
 
+如果不确定自己用的是哪个浏览器，可以让脚本自动尝试常见浏览器：
+
+```powershell
+python scripts/analyze_video_with_openai.py "https://v.douyin.com/xxxx/" `
+  --cookies-from-browser auto `
+  --speech-only `
+  --extract-speech-md "outputs\speech-knowledge.md"
+```
+
+也可以使用 `--auto-cookies`，让普通网页下载失败后自动尝试浏览器 cookies。
+
 如果浏览器正在运行导致 cookies 无法读取，请关闭浏览器后重试，或导出 `cookies.txt`。
 
 ---
