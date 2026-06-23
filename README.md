@@ -97,6 +97,7 @@ AI 会帮你把 skill 放到正确目录，并根据你的电脑环境检查 Pyt
 
 | 功能 | 说明 |
 | --- | --- |
+| 🔗 视频链接分析 | 支持本地视频路径，也支持直接可下载的视频 URL |
 | 🎙️ 口播转写 | 从视频音轨中提取讲解者、博主或课程口播 |
 | 🧠 口播知识 Markdown | 将转写内容整理成核心观点、方法流程、案例和原文摘录 |
 | 🎞️ 变化即采样 | 根据页面变化、版式变化、标题变化和章节导航选择采样点 |
@@ -229,6 +230,30 @@ python scripts/analyze_video_with_openai.py "C:\path\to\video.mp4" `
   --report-md "outputs\video-report.md" `
   --report-json "outputs\video-report.json"
 ```
+
+也可以直接传入可下载的视频链接：
+
+```powershell
+python scripts/analyze_video_with_openai.py "https://example.com/video.mp4" `
+  --question "这个视频讲了什么？画面里发生了什么？" `
+  --ocr `
+  --report-md "outputs\video-report.md"
+```
+
+说明：这里需要是直接视频文件链接。如果是 YouTube、B站、课程网页等页面链接，请先下载视频，或让 AI 帮你转换成可分析的本地视频文件。
+
+---
+
+## 🧭 按需求选择功能
+
+| 你的需求 | 推荐用法 |
+| --- | --- |
+| 我想知道视频讲了什么、画面发生了什么 | 使用完整视频分析，开启 `--ocr`，输出 `--report-md` |
+| 我只想把博主口播整理成知识笔记 | 使用 `--speech-only --speech-md-mode knowledge` |
+| 我想要带时间戳的原始转写稿 | 使用 `--speech-only --speech-md-mode literal` |
+| 我想提取视频里展示的文档/文章 | 使用 `--doc-only --doc-md-mode literal` |
+| 我想分析屏幕录制里的每次页面变化 | 使用 `--sampling-mode all-changes --scene-detection --screen-layout-filter` |
+| 我的视频有底部章节导航或课程目录 | 增加 `--title-ocr-filter --chapter-nav-filter --same-chapter-dedupe-filter` |
 
 ---
 

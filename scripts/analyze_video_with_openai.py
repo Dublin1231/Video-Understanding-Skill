@@ -10,6 +10,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
 
@@ -50,7 +52,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Extract representative frames from a video and analyze them with OpenAI Responses."
     )
-    parser.add_argument("video", help="Path to the source video")
+    parser.add_argument("video", help="Path or direct downloadable URL to the source video")
     parser.add_argument(
         "--question",
         default="Summarize what is said and shown over time.",
@@ -71,6 +73,12 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=120.0,
         help="HTTP timeout in seconds for OpenAI API calls",
+    )
+    parser.add_argument(
+        "--download-timeout",
+        type=float,
+        default=120.0,
+        help="HTTP timeout in seconds when downloading a direct video URL",
     )
     parser.add_argument(
         "--transcribe-model",
@@ -240,6 +248,49 @@ def require_dependency(name: str) -> str:
     if not path:
         raise RuntimeError(f"Missing dependency: {name}")
     return path
+
+
+def is_url(value: str) -> bool:
+    parsed = urllib.parse.urlparse(value or "")
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
+def extension_from_url_or_content_type(url: str, content_type: str | None) -> str:
+    suffix = Path(urllib.parse.urlparse(url).path).suffix.lower()
+    if suffix in {".mp4", ".mov", ".mkv", ".webm", ".m4v", ".avi"}:
+        return suffix
+    content_type = (content_type or "").split(";", 1)[0].strip().lower()
+    mapping = {
+        "video/mp4": ".mp4",
+        "video/quicktime": ".mov",
+        "video/webm": ".webm",
+        "video/x-matroska": ".mkv",
+        "video/x-msvideo": ".avi",
+    }
+    return mapping.get(content_type, ".mp4")
+
+
+def download_video_url(url: str, temp_dir: Path, timeout: float) -> Path:
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "video-understanding-skill/1.0",
+            "Accept": "video/*,*/*;q=0.8",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        content_type = response.headers.get("Content-Type", "")
+        if "text/html" in content_type.lower():
+            raise RuntimeError(
+                "The URL returned HTML, not a direct video file. Download the video first or provide a direct media URL."
+            )
+        extension = extension_from_url_or_content_type(url, content_type)
+        video_path = temp_dir / f"downloaded-video{extension}"
+        with video_path.open("wb") as output:
+            shutil.copyfileobj(response, output)
+    if not video_path.exists() or video_path.stat().st_size == 0:
+        raise RuntimeError("Downloaded video URL produced an empty file.")
+    return video_path
 
 
 def require_openai():
@@ -3434,74 +3485,84 @@ def analyze(
 
 def main() -> int:
     args = parse_args()
-    video_path = Path(args.video).expanduser().resolve()
-    if not video_path.exists():
-        raise SystemExit(f"Video not found: {video_path}")
+    source_video = args.video
 
-    result = analyze(
-        video_path=video_path,
-        model=args.model,
-        question=args.question,
-        sample_seconds=args.sample_seconds,
-        max_frames=args.max_frames,
-        sampling_mode=args.sampling_mode,
-        analysis_batch_size=args.analysis_batch_size,
-        image_detail=args.image_detail,
-        base_url=args.base_url,
-        api_timeout=args.api_timeout,
-        transcribe_model=args.transcribe_model,
-        local_whisper_model=args.local_whisper_model,
-        skip_audio=args.skip_audio,
-        scene_detection=args.scene_detection,
-        scene_threshold=args.scene_threshold,
-        min_change_gap=args.min_change_gap,
-        screen_layout_filter=args.screen_layout_filter,
-        layout_change_threshold=args.layout_change_threshold,
-        layout_downscale_width=args.layout_downscale_width,
-        title_ocr_filter=args.title_ocr_filter,
-        title_change_threshold=args.title_change_threshold,
-        chapter_nav_filter=args.chapter_nav_filter,
-        presenter_shot_filter=args.presenter_shot_filter,
-        same_chapter_dedupe_filter=args.same_chapter_dedupe_filter,
-        use_ocr=args.ocr,
-        extract_doc_md=args.extract_doc_md,
-        doc_only=args.doc_only,
-        doc_md_mode=args.doc_md_mode,
-        extract_speech_md=args.extract_speech_md,
-        speech_only=args.speech_only,
-        speech_md_mode=args.speech_md_mode,
-    )
+    with tempfile.TemporaryDirectory(prefix="video-understanding-source-") as source_tmp:
+        source_temp_dir = Path(source_tmp)
+        source_url = source_video if is_url(source_video) else None
+        if source_url:
+            video_path = download_video_url(source_url, source_temp_dir, args.download_timeout)
+        else:
+            video_path = Path(source_video).expanduser().resolve()
+            if not video_path.exists():
+                raise SystemExit(f"Video not found: {video_path}")
 
-    if args.report_json:
-        report_json_path = Path(args.report_json).expanduser().resolve()
-        report_json_path.parent.mkdir(parents=True, exist_ok=True)
-        report_json_path.write_text(json.dumps(result, indent=2, ensure_ascii=True), encoding="utf-8")
+        result = analyze(
+            video_path=video_path,
+            model=args.model,
+            question=args.question,
+            sample_seconds=args.sample_seconds,
+            max_frames=args.max_frames,
+            sampling_mode=args.sampling_mode,
+            analysis_batch_size=args.analysis_batch_size,
+            image_detail=args.image_detail,
+            base_url=args.base_url,
+            api_timeout=args.api_timeout,
+            transcribe_model=args.transcribe_model,
+            local_whisper_model=args.local_whisper_model,
+            skip_audio=args.skip_audio,
+            scene_detection=args.scene_detection,
+            scene_threshold=args.scene_threshold,
+            min_change_gap=args.min_change_gap,
+            screen_layout_filter=args.screen_layout_filter,
+            layout_change_threshold=args.layout_change_threshold,
+            layout_downscale_width=args.layout_downscale_width,
+            title_ocr_filter=args.title_ocr_filter,
+            title_change_threshold=args.title_change_threshold,
+            chapter_nav_filter=args.chapter_nav_filter,
+            presenter_shot_filter=args.presenter_shot_filter,
+            same_chapter_dedupe_filter=args.same_chapter_dedupe_filter,
+            use_ocr=args.ocr,
+            extract_doc_md=args.extract_doc_md,
+            doc_only=args.doc_only,
+            doc_md_mode=args.doc_md_mode,
+            extract_speech_md=args.extract_speech_md,
+            speech_only=args.speech_only,
+            speech_md_mode=args.speech_md_mode,
+        )
+        if source_url:
+            result["source_url"] = source_url
 
-    if args.report_md:
-        report_md_path = Path(args.report_md).expanduser().resolve()
-        report_md_path.parent.mkdir(parents=True, exist_ok=True)
-        report_md_path.write_text(build_markdown_report(result), encoding="utf-8-sig")
+        if args.report_json:
+            report_json_path = Path(args.report_json).expanduser().resolve()
+            report_json_path.parent.mkdir(parents=True, exist_ok=True)
+            report_json_path.write_text(json.dumps(result, indent=2, ensure_ascii=True), encoding="utf-8")
 
-    if args.extract_doc_md:
-        doc_md_path = Path(args.extract_doc_md).expanduser().resolve()
-        doc_md_path.parent.mkdir(parents=True, exist_ok=True)
-        document_markdown = (result.get("document_markdown") or {}).get("markdown", "")
-        if not document_markdown:
-            document_markdown = "# 文档内容\n\n未从采样帧中提取到稳定的文档正文。"
-        doc_md_path.write_text(document_markdown, encoding="utf-8-sig")
+        if args.report_md:
+            report_md_path = Path(args.report_md).expanduser().resolve()
+            report_md_path.parent.mkdir(parents=True, exist_ok=True)
+            report_md_path.write_text(build_markdown_report(result), encoding="utf-8-sig")
 
-    if args.extract_speech_md:
-        speech_md_path = Path(args.extract_speech_md).expanduser().resolve()
-        speech_md_path.parent.mkdir(parents=True, exist_ok=True)
-        speech_markdown = (result.get("speech_markdown") or {}).get("markdown", "")
-        if not speech_markdown:
-            speech_markdown = "# 博主口播整理\n\n未从视频音轨中提取到稳定的口播转写。"
-        speech_md_path.write_text(speech_markdown, encoding="utf-8-sig")
+        if args.extract_doc_md:
+            doc_md_path = Path(args.extract_doc_md).expanduser().resolve()
+            doc_md_path.parent.mkdir(parents=True, exist_ok=True)
+            document_markdown = (result.get("document_markdown") or {}).get("markdown", "")
+            if not document_markdown:
+                document_markdown = "# 文档内容\n\n未从采样帧中提取到稳定的文档正文。"
+            doc_md_path.write_text(document_markdown, encoding="utf-8-sig")
 
-    if args.json:
-        print(json.dumps(result, indent=2, ensure_ascii=True))
-    else:
-        print(result["output_text"])
+        if args.extract_speech_md:
+            speech_md_path = Path(args.extract_speech_md).expanduser().resolve()
+            speech_md_path.parent.mkdir(parents=True, exist_ok=True)
+            speech_markdown = (result.get("speech_markdown") or {}).get("markdown", "")
+            if not speech_markdown:
+                speech_markdown = "# 博主口播整理\n\n未从视频音轨中提取到稳定的口播转写。"
+            speech_md_path.write_text(speech_markdown, encoding="utf-8-sig")
+
+        if args.json:
+            print(json.dumps(result, indent=2, ensure_ascii=True))
+        else:
+            print(result["output_text"])
     return 0
 
 

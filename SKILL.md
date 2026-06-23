@@ -1,6 +1,6 @@
 ---
 name: "video-understanding"
-description: "Use when Codex needs to understand what a video says and what happens on screen over time from files such as .mp4, .mov, .mkv, .webm, or a folder of extracted clips/frames. This skill turns video understanding into a repeatable workflow: probe environment capabilities, prefer native multimodal analysis when available, and otherwise combine transcript, OCR, shot segmentation, and representative visuals into a time-aligned summary."
+description: "Use when Codex needs to understand what a video says and what happens on screen over time from local files such as .mp4, .mov, .mkv, .webm, direct downloadable video URLs, or a folder of extracted clips/frames. Trigger this skill when the user sends a video file path, a direct video URL, or asks to transcribe, summarize, OCR, extract documents from, or convert a video into knowledge Markdown."
 ---
 
 # Video Understanding
@@ -10,6 +10,29 @@ Turn video understanding into a deterministic workflow instead of ad hoc frame g
 This skill does not magically add a brand-new video modality to Codex. It gives Codex a reliable way to decide which path is available in the current environment, gather the right artifacts, and produce a time-aligned explanation of what is said and shown.
 
 In current public OpenAI docs, the stable building blocks are image inputs, audio/speech workflows, and file inputs. For general video understanding, the most reliable approach is usually a hybrid path: extract sparse frames plus audio locally, then send those artifacts to the OpenAI API for multimodal analysis.
+
+## Triggering
+
+Use this skill automatically when the user provides:
+
+- a local video path ending in `.mp4`, `.mov`, `.mkv`, `.webm`, `.m4v`, or `.avi`
+- a direct downloadable video URL ending in a common video extension
+- a request such as "analyze this video", "summarize this video", "turn this video into notes", "extract the document shown in this video", or "transcribe the speaker"
+
+Direct media URLs can be passed to `scripts/analyze_video_with_openai.py` directly. Web pages such as YouTube, Bilibili, X, or course pages may not be direct video files; download them first or provide a direct media URL.
+
+## Choose The Right Mode
+
+Tell the user these choices when their goal is unclear:
+
+| User goal | Recommended mode |
+| --- | --- |
+| Understand what is said and shown | full video report with `--ocr` and optional `--report-md` |
+| Turn speaker voice into knowledge notes | `--speech-only --speech-md-mode knowledge --extract-speech-md <path>` |
+| Get a timestamped transcript | `--speech-only --speech-md-mode literal --extract-speech-md <path>` |
+| Extract an on-screen document or article | `--doc-only --doc-md-mode literal --extract-doc-md <path>` |
+| Capture every screen/page change | `--sampling-mode all-changes --scene-detection --screen-layout-filter` |
+| Analyze a screen recording with chapters | add `--title-ocr-filter --chapter-nav-filter --same-chapter-dedupe-filter` |
 
 ## Quick Start
 

@@ -97,6 +97,7 @@ Text recognized from the visible document region is preserved here.
 
 | Feature | Description |
 | --- | --- |
+| 🔗 Video URL analysis | Supports local video paths and direct downloadable video URLs |
 | 🎙️ Speech transcription | Extract speaker, creator, or lecture audio from a video |
 | 🧠 Speech to knowledge Markdown | Turn transcripts into core ideas, workflows, cases, and timestamped excerpts |
 | 🎞️ Change-aware sampling | Sample frames based on page, layout, title, and chapter-navigation changes |
@@ -229,6 +230,30 @@ python scripts/analyze_video_with_openai.py "C:\path\to\video.mp4" `
   --report-md "outputs\video-report.md" `
   --report-json "outputs\video-report.json"
 ```
+
+You can also pass a direct downloadable video URL:
+
+```powershell
+python scripts/analyze_video_with_openai.py "https://example.com/video.mp4" `
+  --question "What is said in this video, and what happens on screen?" `
+  --ocr `
+  --report-md "outputs\video-report.md"
+```
+
+Note: this must be a direct video file URL. For YouTube, Bilibili, course pages, or other webpage URLs, download the video first or ask an AI assistant to convert it into a local video file.
+
+---
+
+## 🧭 Choose By Goal
+
+| Your Goal | Recommended Use |
+| --- | --- |
+| Understand what is said and shown | Full video analysis with `--ocr` and `--report-md` |
+| Turn speaker audio into knowledge notes | `--speech-only --speech-md-mode knowledge` |
+| Get a timestamped raw transcript | `--speech-only --speech-md-mode literal` |
+| Extract a visible document or article | `--doc-only --doc-md-mode literal` |
+| Analyze every page change in a screen recording | `--sampling-mode all-changes --scene-detection --screen-layout-filter` |
+| Use chapter navigation or course menus as signals | Add `--title-ocr-filter --chapter-nav-filter --same-chapter-dedupe-filter` |
 
 ---
 
