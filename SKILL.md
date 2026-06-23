@@ -22,6 +22,8 @@ Use this skill automatically when the user provides:
 
 Video URLs can be passed to `scripts/analyze_video_with_openai.py` directly. The script first tries direct media download; if the URL is a webpage, it falls back to `yt-dlp` when installed. Site support depends on `yt-dlp`, network access, cookies/login status, DRM, and the user's permission to download the video.
 
+For sites that require login or fresh cookies, use `--cookies <cookies.txt>` or `--cookies-from-browser <browser>`. If browser cookies cannot be read because the browser is locked or running, ask the user to close the browser, export cookies, or provide a local downloaded video.
+
 ## Choose The Right Mode
 
 Tell the user these choices when their goal is unclear:
@@ -210,6 +212,8 @@ Useful flags:
 - `--api-timeout <seconds>` to raise the HTTP timeout for larger videos or slower endpoints
 - `--download-timeout <seconds>` to raise the timeout for direct URL or `yt-dlp` downloads
 - `--no-yt-dlp` to disable webpage-video download fallback and only accept local files or direct media URLs
+- `--cookies <cookies.txt>` to pass a Netscape-format cookie file to `yt-dlp`
+- `--cookies-from-browser <browser>` to let `yt-dlp` read cookies from a browser such as `chrome`, `edge`, or `firefox`
 - `--local-whisper-model <name-or-path>` to select the local fallback ASR model
 
 Long-video coverage notes:

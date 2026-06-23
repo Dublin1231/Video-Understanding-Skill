@@ -86,6 +86,16 @@ def parse_args() -> argparse.Namespace:
         help="Disable yt-dlp fallback for webpage video URLs.",
     )
     parser.add_argument(
+        "--cookies",
+        default="",
+        help="Optional Netscape-format cookies.txt file for yt-dlp webpage video downloads.",
+    )
+    parser.add_argument(
+        "--cookies-from-browser",
+        default="",
+        help="Optional browser name for yt-dlp cookies, for example: chrome, edge, firefox.",
+    )
+    parser.add_argument(
         "--transcribe-model",
         default=DEFAULT_TRANSCRIBE_MODEL,
         help=f"Audio transcription model to use when audio is present (default: {DEFAULT_TRANSCRIBE_MODEL})",
@@ -308,16 +318,30 @@ def find_downloaded_video(temp_dir: Path) -> Path | None:
     return max(candidates, key=lambda item: item.stat().st_size)
 
 
-def download_video_with_ytdlp(url: str, temp_dir: Path, timeout: float) -> Path:
+def ytdlp_command_prefix() -> list[str]:
     ytdlp = shutil.which("yt-dlp") or shutil.which("yt-dlp.exe")
-    if not ytdlp:
+    if ytdlp:
+        return [ytdlp]
+    try:
+        import yt_dlp  # noqa: F401
+    except ImportError as exc:
         raise RuntimeError(
             "This URL is not a direct media file and yt-dlp is not installed. "
             "Install yt-dlp or download the video locally first."
-        )
+        ) from exc
+    return [sys.executable, "-m", "yt_dlp"]
+
+
+def download_video_with_ytdlp(
+    url: str,
+    temp_dir: Path,
+    timeout: float,
+    cookies: str = "",
+    cookies_from_browser: str = "",
+) -> Path:
     output_template = str(temp_dir / "downloaded-video.%(ext)s")
-    cmd = [
-        ytdlp,
+    prefix = ytdlp_command_prefix()
+    cmd = prefix + [
         "--no-playlist",
         "--no-progress",
         "--socket-timeout",
@@ -330,6 +354,12 @@ def download_video_with_ytdlp(url: str, temp_dir: Path, timeout: float) -> Path:
         output_template,
         url,
     ]
+    insert_at = len(prefix)
+    if cookies:
+        cmd[insert_at:insert_at] = ["--cookies", str(Path(cookies).expanduser().resolve())]
+        insert_at += 2
+    if cookies_from_browser:
+        cmd[insert_at:insert_at] = ["--cookies-from-browser", cookies_from_browser]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         error = (result.stderr or result.stdout or "").strip()
@@ -340,7 +370,14 @@ def download_video_with_ytdlp(url: str, temp_dir: Path, timeout: float) -> Path:
     return video_path
 
 
-def resolve_video_source(url_or_path: str, temp_dir: Path, timeout: float, use_ytdlp: bool = True) -> tuple[Path, str | None]:
+def resolve_video_source(
+    url_or_path: str,
+    temp_dir: Path,
+    timeout: float,
+    use_ytdlp: bool = True,
+    cookies: str = "",
+    cookies_from_browser: str = "",
+) -> tuple[Path, str | None]:
     if not is_url(url_or_path):
         video_path = Path(url_or_path).expanduser().resolve()
         if not video_path.exists():
@@ -354,7 +391,13 @@ def resolve_video_source(url_or_path: str, temp_dir: Path, timeout: float, use_y
         direct_error = str(exc)
     if use_ytdlp:
         try:
-            return download_video_with_ytdlp(url_or_path, temp_dir, timeout), url_or_path
+            return download_video_with_ytdlp(
+                url_or_path,
+                temp_dir,
+                timeout,
+                cookies=cookies,
+                cookies_from_browser=cookies_from_browser,
+            ), url_or_path
         except Exception as exc:
             raise RuntimeError(f"Unable to download video URL. Direct download error: {direct_error}. yt-dlp error: {exc}")
     raise RuntimeError(f"Unable to download direct video URL: {direct_error}")
@@ -3561,6 +3604,8 @@ def main() -> int:
             source_temp_dir,
             args.download_timeout,
             use_ytdlp=not args.no_yt_dlp,
+            cookies=args.cookies,
+            cookies_from_browser=args.cookies_from_browser,
         )
 
         result = analyze(

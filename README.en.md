@@ -253,6 +253,26 @@ The script first tries direct media download. If the URL is a webpage, it automa
 
 If webpage download fails, give the link to an AI assistant and ask it to install/configure `yt-dlp`, or download the video locally before analysis.
 
+For sites that require login state, such as short-video platforms, social platforms, course sites, or private content, provide cookies:
+
+```powershell
+python scripts/analyze_video_with_openai.py "https://example.com/video-page" `
+  --cookies "C:\path\to\cookies.txt" `
+  --speech-only `
+  --extract-speech-md "outputs\speech-knowledge.md"
+```
+
+You can also ask `yt-dlp` to read cookies from a browser:
+
+```powershell
+python scripts/analyze_video_with_openai.py "https://example.com/video-page" `
+  --cookies-from-browser chrome `
+  --speech-only `
+  --extract-speech-md "outputs\speech-knowledge.md"
+```
+
+If browser cookies cannot be read while the browser is running, close the browser and retry, or export a `cookies.txt` file.
+
 ---
 
 ## 🧭 Choose By Goal

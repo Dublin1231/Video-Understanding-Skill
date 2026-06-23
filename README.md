@@ -253,6 +253,26 @@ python scripts/analyze_video_with_openai.py "https://example.com/video.mp4" `
 
 如果网页链接下载失败，可以把链接发给 AI，让它帮你安装/配置 `yt-dlp`，或让它先把视频下载成本地文件后再分析。
 
+对于抖音、小红书、课程平台、私有内容等需要登录态的网站，可能需要提供 cookies：
+
+```powershell
+python scripts/analyze_video_with_openai.py "https://v.douyin.com/xxxx/" `
+  --cookies "C:\path\to\cookies.txt" `
+  --speech-only `
+  --extract-speech-md "outputs\speech-knowledge.md"
+```
+
+也可以尝试让 `yt-dlp` 从浏览器读取 cookies：
+
+```powershell
+python scripts/analyze_video_with_openai.py "https://v.douyin.com/xxxx/" `
+  --cookies-from-browser chrome `
+  --speech-only `
+  --extract-speech-md "outputs\speech-knowledge.md"
+```
+
+如果浏览器正在运行导致 cookies 无法读取，请关闭浏览器后重试，或导出 `cookies.txt`。
+
 ---
 
 ## 🧭 按需求选择功能
