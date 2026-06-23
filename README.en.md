@@ -146,6 +146,30 @@ The first local transcription run may download a model into `models/`. That dire
 
 ---
 
+## 🧠 Model Configuration
+
+This skill uses two model paths: one for listening to audio and one for visual/multimodal synthesis. If you only need speech-to-knowledge Markdown, you can run entirely through the local transcription path.
+
+| Use Case | Recommended Setup | Notes |
+| --- | --- | --- |
+| Transcribe speech into Markdown only | `--speech-only` + `--local-whisper-model small` | Best beginner path; stable, local, and does not upload frames |
+| Full video understanding report | `--model <your multimodal model>` | Combines visuals, OCR, speech, and timeline evidence |
+| Fallback when remote transcription fails | `--local-whisper-model small` | Automatically uses local Whisper when remote transcription is unavailable |
+| Faster local transcription | `--local-whisper-model base` | Faster, usually less accurate |
+| More accurate local transcription | `--local-whisper-model medium` | More accurate, but slower and heavier |
+
+Common flags:
+
+```powershell
+--model "gpt-5.4"
+--transcribe-model "gpt-4o-transcribe-diarize"
+--local-whisper-model "small"
+```
+
+Beginners can start with the defaults. If you are not sure which model, gateway, or local setup to use, give the repository link to an AI assistant and ask it to inspect your machine and generate the right command.
+
+---
+
 ## 🚀 Quick Start
 
 Probe local capabilities:

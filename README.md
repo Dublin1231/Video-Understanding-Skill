@@ -146,6 +146,30 @@ python -m pip install openai faster-whisper pillow pytesseract
 
 ---
 
+## 🧠 模型配置
+
+这个 skill 支持两类模型：一个负责“听音频”，一个负责“看画面并总结”。如果只做口播转知识 Markdown，可以完全走本地模型，不需要远程模型。
+
+| 场景 | 推荐配置 | 说明 |
+| --- | --- | --- |
+| 只转写口播并整理成 Markdown | `--speech-only` + `--local-whisper-model small` | 最适合新手，稳定、隐私更好、无需上传画面 |
+| 视频理解报告 | `--model <你的多模态模型>` | 用于综合分析画面、OCR、口播和时间线 |
+| 远程转写失败时兜底 | `--local-whisper-model small` | 远程转写不可用时自动使用本地 Whisper |
+| 更快的本地转写 | `--local-whisper-model base` | 速度更快，但准确率通常低一些 |
+| 更准的本地转写 | `--local-whisper-model medium` | 准确率更高，但更慢、更吃内存 |
+
+常用参数：
+
+```powershell
+--model "gpt-5.4"
+--transcribe-model "gpt-4o-transcribe-diarize"
+--local-whisper-model "small"
+```
+
+新手建议先使用默认配置。如果你不确定自己的模型、网关或本地环境怎么配，可以把仓库链接发给 AI，让它根据你的电脑环境帮你检查并生成命令。
+
+---
+
 ## 🚀 快速开始
 
 检查本地能力：
