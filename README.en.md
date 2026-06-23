@@ -253,7 +253,7 @@ The script first tries direct media download. If the URL is a webpage, it automa
 
 If webpage download fails, give the link to an AI assistant and ask it to install/configure `yt-dlp`, or download the video locally before analysis.
 
-For sites that require login state, such as short-video platforms, social platforms, course sites, or private content, provide cookies:
+For sites that require login state, such as short-video platforms, social platforms, course sites, or private content, the most reliable path is a Netscape-format `cookies.txt` file:
 
 ```powershell
 python scripts/analyze_video_with_openai.py "https://example.com/video-page" `
@@ -262,7 +262,7 @@ python scripts/analyze_video_with_openai.py "https://example.com/video-page" `
   --extract-speech-md "outputs\speech-knowledge.md"
 ```
 
-You can also ask `yt-dlp` to read cookies from a browser:
+You can also ask `yt-dlp` to read cookies from a browser, but on newer Windows Chrome/Edge versions this can fail because of DPAPI / App-Bound Encryption:
 
 ```powershell
 python scripts/analyze_video_with_openai.py "https://example.com/video-page" `
@@ -282,7 +282,13 @@ python scripts/analyze_video_with_openai.py "https://example.com/video-page" `
 
 You can also use `--auto-cookies` to try browser cookies automatically after a normal webpage download fails.
 
-If browser cookies cannot be read while the browser is running, close the browser and retry, or export a `cookies.txt` file.
+If you see `Failed to decrypt with DPAPI`, the link is not the problem. Chrome/Edge local encryption blocked external cookie extraction. Use one of these recovery paths:
+
+- Export a Netscape-format `cookies.txt` for the current site with a trusted browser extension, then pass it with `--cookies "C:\path\to\cookies.txt"`.
+- If you are logged in with Firefox, try `--cookies-from-browser firefox`.
+- If this still fails, download the video as a local `.mp4` first, then analyze the local file.
+
+Do not commit `cookies.txt` to GitHub or share it publicly; it acts like a temporary login credential.
 
 ---
 

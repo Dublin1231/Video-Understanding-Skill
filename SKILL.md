@@ -22,7 +22,7 @@ Use this skill automatically when the user provides:
 
 Video URLs can be passed to `scripts/analyze_video_with_openai.py` directly. The script first tries direct media download; if the URL is a webpage, it falls back to `yt-dlp` when installed. Site support depends on `yt-dlp`, network access, cookies/login status, DRM, and the user's permission to download the video.
 
-For sites that require login or fresh cookies, use `--cookies <cookies.txt>`, `--cookies-from-browser <browser>`, or `--cookies-from-browser auto`. If browser cookies cannot be read because the browser is locked or running, ask the user to close the browser, export cookies, or provide a local downloaded video.
+For sites that require login or fresh cookies, prefer a Netscape-format `--cookies <cookies.txt>` file. `--cookies-from-browser <browser>` and `--cookies-from-browser auto` are convenience fallbacks, but on newer Windows Chrome/Edge versions they may fail with DPAPI / App-Bound Encryption errors. If that happens, ask the user to export `cookies.txt`, try Firefox login state, or provide a local downloaded video.
 
 ## Choose The Right Mode
 

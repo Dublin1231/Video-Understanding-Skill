@@ -253,7 +253,7 @@ python scripts/analyze_video_with_openai.py "https://example.com/video.mp4" `
 
 如果网页链接下载失败，可以把链接发给 AI，让它帮你安装/配置 `yt-dlp`，或让它先把视频下载成本地文件后再分析。
 
-对于抖音、小红书、课程平台、私有内容等需要登录态的网站，可能需要提供 cookies：
+对于抖音、小红书、课程平台、私有内容等需要登录态的网站，最稳的方式是提供 Netscape 格式的 `cookies.txt`：
 
 ```powershell
 python scripts/analyze_video_with_openai.py "https://v.douyin.com/xxxx/" `
@@ -262,7 +262,7 @@ python scripts/analyze_video_with_openai.py "https://v.douyin.com/xxxx/" `
   --extract-speech-md "outputs\speech-knowledge.md"
 ```
 
-也可以尝试让 `yt-dlp` 从浏览器读取 cookies：
+也可以尝试让 `yt-dlp` 从浏览器读取 cookies，但在 Windows 的新版 Chrome/Edge 上，这一步可能会因为 DPAPI / App-Bound Encryption 无法解密而失败：
 
 ```powershell
 python scripts/analyze_video_with_openai.py "https://v.douyin.com/xxxx/" `
@@ -282,7 +282,13 @@ python scripts/analyze_video_with_openai.py "https://v.douyin.com/xxxx/" `
 
 也可以使用 `--auto-cookies`，让普通网页下载失败后自动尝试浏览器 cookies。
 
-如果浏览器正在运行导致 cookies 无法读取，请关闭浏览器后重试，或导出 `cookies.txt`。
+如果出现 `Failed to decrypt with DPAPI`，说明不是链接问题，而是 Chrome/Edge 的本机加密阻止了外部程序读取 cookies。推荐改用下面任一方式：
+
+- 用可信浏览器扩展导出当前站点的 Netscape 格式 `cookies.txt`，然后使用 `--cookies "C:\path\to\cookies.txt"`。
+- 如果 Firefox 里已经登录该网站，可以尝试 `--cookies-from-browser firefox`。
+- 如果仍然失败，先把视频下载成本地 `.mp4`，再交给 skill 分析。
+
+不要把 `cookies.txt` 上传到 GitHub，也不要发给陌生人；它等同于一段临时登录凭据。
 
 ---
 
