@@ -290,6 +290,33 @@ python scripts/analyze_video_with_openai.py "https://v.douyin.com/xxxx/" `
 
 不要把 `cookies.txt` 上传到 GitHub，也不要发给陌生人；它等同于一段临时登录凭据。
 
+如果 `yt-dlp` 和 cookies 都失败，但浏览器里可以正常播放，可以使用“浏览器播放录制 fallback”：先把网页播放画面录成临时 mp4，再交给 skill 分析。
+
+```powershell
+python scripts/record_webpage_playback.py "https://www.douyin.com/video/7623595912924777780" `
+  --duration 60 `
+  --output "outputs\browser-capture.mp4"
+
+python scripts/analyze_video_with_openai.py "outputs\browser-capture.mp4" `
+  --ocr `
+  --report-md "outputs\browser-capture-report.md"
+```
+
+这个模式可以稳定捕获画面；如果电脑没有 Stereo Mix、WASAPI loopback 或虚拟声卡，默认不会录到系统声音。可以先用下面命令查看可用音频设备：
+
+```powershell
+python scripts/record_webpage_playback.py --list-devices
+```
+
+如果看到可用的系统回放/虚拟音频设备，可以这样录音：
+
+```powershell
+python scripts/record_webpage_playback.py "https://www.douyin.com/video/7623595912924777780" `
+  --duration 60 `
+  --audio-device "你的音频设备名称" `
+  --output "outputs\browser-capture.mp4"
+```
+
 ---
 
 ## 🧭 按需求选择功能

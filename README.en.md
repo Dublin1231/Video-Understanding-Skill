@@ -290,6 +290,33 @@ If you see `Failed to decrypt with DPAPI`, the link is not the problem. Chrome/E
 
 Do not commit `cookies.txt` to GitHub or share it publicly; it acts like a temporary login credential.
 
+If `yt-dlp` and cookies both fail but the webpage plays normally in a browser, use the browser playback recording fallback: record the visible webpage playback into a temporary mp4, then analyze that mp4 with this skill.
+
+```powershell
+python scripts/record_webpage_playback.py "https://www.douyin.com/video/7623595912924777780" `
+  --duration 60 `
+  --output "outputs\browser-capture.mp4"
+
+python scripts/analyze_video_with_openai.py "outputs\browser-capture.mp4" `
+  --ocr `
+  --report-md "outputs\browser-capture-report.md"
+```
+
+This mode reliably captures visuals. System audio is only captured when the computer exposes a stereo mix, WASAPI loopback, or virtual audio device. Inspect available devices first:
+
+```powershell
+python scripts/record_webpage_playback.py --list-devices
+```
+
+If a usable playback/virtual audio device appears, pass it explicitly:
+
+```powershell
+python scripts/record_webpage_playback.py "https://www.douyin.com/video/7623595912924777780" `
+  --duration 60 `
+  --audio-device "Your audio device name" `
+  --output "outputs\browser-capture.mp4"
+```
+
 ---
 
 ## 🧭 Choose By Goal
