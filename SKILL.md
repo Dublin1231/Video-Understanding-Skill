@@ -38,7 +38,7 @@ Tell the user these choices when their goal is unclear:
 | Extract an on-screen document or article | `--doc-only --doc-md-mode literal --extract-doc-md <path>` |
 | Capture every screen/page change | `--sampling-mode all-changes --scene-detection --screen-layout-filter` |
 | Analyze a screen recording with chapters | add `--title-ocr-filter --chapter-nav-filter --same-chapter-dedupe-filter` |
-| Webpage video may be protected | add `--browser-record-fallback` so the script tries direct/yt-dlp first, then records browser playback if download fails |
+| Douyin webpage video may be protected | add `--douyin-downloader-fallback` so the script tries direct/yt-dlp first, then jiji262/douyin-downloader if yt-dlp fails |
 
 ## Quick Start
 
@@ -67,7 +67,7 @@ Tell the user these choices when their goal is unclear:
 
 Accept local files, direct media URLs, and webpage video links. For URLs, the script first attempts direct media download, then falls back to `yt-dlp` when the URL is a webpage and `yt-dlp` is installed.
 
-If a webpage cannot be downloaded because of login, permissions, DRM, or site restrictions, use `--browser-record-fallback` when appropriate. The main analyzer will try direct download and `yt-dlp` first; only if those fail will it record browser playback into an mp4 and feed that mp4 into the normal analysis pipeline. It tries headless/background recording first, then falls back to visible desktop recording when headless capture fails. Headless recording can auto-use the webpage `video.duration` when available; audio capture still requires visible desktop recording plus a system loopback or virtual audio device.
+If a Douyin webpage cannot be downloaded by `yt-dlp`, use `--douyin-downloader-fallback` when appropriate. The main analyzer will try direct download and `yt-dlp` first; only if those fail will it call a local clone of `github.com/jiji262/douyin-downloader`, then feed the downloaded mp4 into the normal analysis pipeline.
 
 ### 2. Inspect the environment
 
@@ -193,46 +193,29 @@ Create a structured analysis brief from a video path, optional transcript path, 
 
 Extract representative frames, optionally extract audio, and call the OpenAI Responses API to produce a structured video summary.
 
-### `scripts/record_webpage_playback.py`
+### Douyin downloader fallback
 
-Open or record a webpage video from the desktop when direct download and `yt-dlp` fail.
+For Douyin links, `yt-dlp` may fail with fresh-cookie or extractor issues even when `cookies.txt` is present. A tested fallback is [jiji262/douyin-downloader](https://github.com/jiji262/douyin-downloader).
 
-Usually prefer the one-command fallback from the main analyzer:
+Prepare it locally:
+
+```powershell
+git clone https://github.com/jiji262/douyin-downloader.git C:\Tools\douyin-downloader
+& 'C:\Users\35647\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' `
+  -m pip install -r C:\Tools\douyin-downloader\requirements.txt
+```
+
+Then use:
 
 ```powershell
 & 'C:\Users\35647\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' `
   "$env:USERPROFILE\.codex\skills\video-understanding\scripts\analyze_video_with_openai.py" `
   "https://www.douyin.com/video/7623595912924777780" `
-  --browser-record-fallback `
-  --browser-record-duration auto `
-  --browser-record-fallback-duration 60 `
-  --browser-record-auto-audio `
+  --cookies "C:\path\to\www.douyin.com_cookies.txt" `
+  --douyin-downloader-fallback `
+  --douyin-downloader-path "C:\Tools\douyin-downloader" `
   --ocr --report-md "outputs\web-video-report.md"
 ```
-
-Use `--browser-record-headless never` when you specifically need visible desktop recording with possible system audio. Use `--browser-record-headless always` to fail instead of falling back to visible desktop recording.
-
-Manual recording is still available when you want to inspect or reuse the captured mp4:
-
-```powershell
-& 'C:\Users\35647\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' `
-  "$env:USERPROFILE\.codex\skills\video-understanding\scripts\record_webpage_playback.py" `
-  "https://www.douyin.com/video/7623595912924777780" `
-  --duration 60 `
-  --output "outputs\browser-capture.mp4"
-```
-
-Then analyze the captured file:
-
-```powershell
-& 'C:\Users\35647\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' `
-  "$env:USERPROFILE\.codex\skills\video-understanding\scripts\analyze_video_with_openai.py" `
-  "outputs\browser-capture.mp4" --ocr --report-md "outputs\browser-capture-report.md"
-```
-
-Use `--list-devices` to inspect possible audio devices. If the machine exposes a stereo mix, loopback, or virtual audio device, pass it with `--audio-device "<device name>"`; otherwise the recording is visual-only.
-Use `--auto-audio` to let the script try to pick a system playback/loopback/virtual audio device. It intentionally avoids plain microphones when auto-selecting because microphones usually record room noise, not browser audio. Add `--audio-required` when the task must include audio and should fail instead of silently recording visuals only.
-Use `--audio-help` when no loopback device is available. It explains the Windows setup path: enable Stereo Mix if present, otherwise install/enable a virtual audio cable or virtual sound card, rerun `--list-devices`, then pass the discovered device name with `--audio-device`.
 
 Useful flags:
 

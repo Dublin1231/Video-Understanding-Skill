@@ -307,68 +307,33 @@ Then pass it to the skill:
 ```powershell
 python scripts/analyze_video_with_openai.py "https://www.douyin.com/video/7623595912924777780" `
   --cookies "C:\Users\YourName\Downloads\www.douyin.com_cookies.txt" `
-  --browser-record-fallback `
   --ocr `
   --report-md "outputs\web-video-report.md"
 ```
 
-If `yt-dlp` and cookies both fail but the webpage plays normally in a browser, use the browser playback recording fallback: record the visible webpage playback into a temporary mp4, then analyze that mp4 with this skill.
+### Douyin-specific fallback
 
-Prefer the one-command fallback in the main analyzer. It tries direct media download / `yt-dlp` / cookies first; only when download fails does it open the browser and record playback.
-By default it tries headless/background recording first without showing a visible page. If headless capture fails, it falls back to visible desktop recording. `--browser-record-duration auto` tries to use the webpage video duration; when unavailable, it uses `--browser-record-fallback-duration`.
+If `yt-dlp` still fails for Douyin, you can use [jiji262/douyin-downloader](https://github.com/jiji262/douyin-downloader) as a dedicated fallback. This was tested locally with the same Douyin link and cookies file: `yt-dlp` failed, while douyin-downloader successfully downloaded the mp4.
+
+Prepare the tool once:
+
+```powershell
+git clone https://github.com/jiji262/douyin-downloader.git C:\Tools\douyin-downloader
+python -m pip install -r C:\Tools\douyin-downloader\requirements.txt
+```
+
+Then run:
 
 ```powershell
 python scripts/analyze_video_with_openai.py "https://www.douyin.com/video/7623595912924777780" `
-  --browser-record-fallback `
-  --browser-record-duration auto `
-  --browser-record-fallback-duration 60 `
-  --browser-record-auto-audio `
+  --cookies "C:\Users\YourName\Downloads\www.douyin.com_cookies.txt" `
+  --douyin-downloader-fallback `
+  --douyin-downloader-path "C:\Tools\douyin-downloader" `
   --ocr `
   --report-md "outputs\web-video-report.md"
 ```
 
-If system audio is mandatory, add `--browser-record-headless never` to force visible desktop recording. Headless capture is screenshot-based and usually does not include browser audio.
-
-```powershell
-python scripts/record_webpage_playback.py "https://www.douyin.com/video/7623595912924777780" `
-  --duration 60 `
-  --auto-audio `
-  --output "outputs\browser-capture.mp4"
-
-python scripts/analyze_video_with_openai.py "outputs\browser-capture.mp4" `
-  --ocr `
-  --report-md "outputs\browser-capture-report.md"
-```
-
-This mode reliably captures visuals. System audio is only captured when the computer exposes a stereo mix, WASAPI loopback, or virtual audio device. Inspect available devices first:
-
-```powershell
-python scripts/record_webpage_playback.py --list-devices
-```
-
-If a usable playback/virtual audio device appears, pass it explicitly:
-
-```powershell
-python scripts/record_webpage_playback.py "https://www.douyin.com/video/7623595912924777780" `
-  --duration 60 `
-  --audio-device "Your audio device name" `
-  --output "outputs\browser-capture.mp4"
-```
-
-You can also use `--auto-audio` to let the script try to select a system playback/virtual audio device. It intentionally avoids plain microphones because microphones usually capture room noise, not browser audio. Add `--audio-required` when audio is mandatory and the command should fail instead of silently recording visuals only.
-
-If no system-audio device is detected, print local setup guidance:
-
-```powershell
-python scripts/record_webpage_playback.py --audio-help
-```
-
-Common Windows recovery order:
-
-- Try enabling Stereo Mix first: Settings > System > Sound > More sound settings > Recording. Right-click the blank area, enable "Show Disabled Devices", then enable "Stereo Mix" if it appears.
-- If Stereo Mix is unavailable, install or enable a virtual sound card / virtual audio cable, then rerun `--list-devices`.
-- When the new device appears, pass it with `--audio-device "Device Name"`.
-- Avoid plain microphones for browser videos because they capture room noise, keyboard noise, and echo.
+Order of attempts: direct media download, `yt-dlp`, then douyin-downloader for Douyin URLs only. The final downloaded mp4 is passed into the normal analysis pipeline.
 
 ---
 

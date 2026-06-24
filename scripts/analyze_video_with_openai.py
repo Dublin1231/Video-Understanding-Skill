@@ -101,48 +101,14 @@ def parse_args() -> argparse.Namespace:
         help="When a webpage video download needs cookies, automatically try common local browsers.",
     )
     parser.add_argument(
-        "--browser-record-fallback",
+        "--douyin-downloader-fallback",
         action="store_true",
-        help="If URL download/yt-dlp fails, open the webpage and record browser playback to a temporary mp4.",
+        help="If yt-dlp fails for Douyin URLs, try jiji262/douyin-downloader as a dedicated fallback.",
     )
     parser.add_argument(
-        "--browser-record-duration",
-        default="auto",
-        help="Seconds to record when --browser-record-fallback is used, or 'auto' to use webpage video duration when available.",
-    )
-    parser.add_argument(
-        "--browser-record-fallback-duration",
-        type=float,
-        default=60.0,
-        help="Fallback seconds to record when --browser-record-duration auto cannot detect webpage video duration.",
-    )
-    parser.add_argument(
-        "--browser-record-max-duration",
-        type=float,
-        default=300.0,
-        help="Maximum seconds allowed for browser recording fallback.",
-    )
-    parser.add_argument(
-        "--browser-record-headless",
-        choices=["auto", "always", "never"],
-        default="auto",
-        help="Try headless background webpage recording before visible desktop recording.",
-    )
-    parser.add_argument(
-        "--browser-record-warmup",
-        type=float,
-        default=8.0,
-        help="Seconds to wait after opening the webpage before browser recording starts.",
-    )
-    parser.add_argument(
-        "--browser-record-auto-audio",
-        action="store_true",
-        help="Try to auto-select a system playback/loopback audio device during browser recording.",
-    )
-    parser.add_argument(
-        "--browser-record-audio-required",
-        action="store_true",
-        help="Fail browser recording if no system playback/loopback audio device is available.",
+        "--douyin-downloader-path",
+        default=os.environ.get("DOUYIN_DOWNLOADER_PATH", ""),
+        help="Path to a local clone of github.com/jiji262/douyin-downloader. Defaults to DOUYIN_DOWNLOADER_PATH if set.",
     )
     parser.add_argument(
         "--transcribe-model",
@@ -432,6 +398,16 @@ def find_downloaded_video(temp_dir: Path) -> Path | None:
     return max(candidates, key=lambda item: item.stat().st_size)
 
 
+def find_downloaded_video_recursive(root_dir: Path) -> Path | None:
+    candidates = []
+    for path in root_dir.rglob("*"):
+        if path.is_file() and path.suffix.lower() in {".mp4", ".mov", ".mkv", ".webm", ".m4v", ".avi"}:
+            candidates.append(path)
+    if not candidates:
+        return None
+    return max(candidates, key=lambda item: item.stat().st_size)
+
+
 def ytdlp_command_prefix() -> list[str]:
     ytdlp = shutil.which("yt-dlp") or shutil.which("yt-dlp.exe")
     if ytdlp:
@@ -484,74 +460,137 @@ def download_video_with_ytdlp(
     return video_path
 
 
-def record_webpage_playback(
+def parse_netscape_cookie_file(cookie_path: str) -> dict[str, str]:
+    if not cookie_path:
+        return {}
+    path = Path(cookie_path).expanduser().resolve()
+    if not path.exists():
+        return {}
+    cookies = {}
+    for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) >= 7:
+            cookies[parts[5]] = parts[6]
+    return cookies
+
+
+def find_douyin_downloader_path(explicit_path: str = "") -> Path | None:
+    candidates = [
+        explicit_path,
+        os.environ.get("DOUYIN_DOWNLOADER_PATH", ""),
+        str(SKILL_DIR / "tools" / "douyin-downloader"),
+        str(Path(os.environ.get("LOCALAPPDATA", "")) / "Temp" / "douyin-downloader-inspect"),
+    ]
+    for candidate in candidates:
+        if not candidate:
+            continue
+        path = Path(candidate).expanduser().resolve()
+        if (path / "run.py").exists():
+            return path
+    return None
+
+
+def write_douyin_downloader_config(
+    config_path: Path,
+    url: str,
+    output_dir: Path,
+    cookies_file: str = "",
+) -> None:
+    cookies = parse_netscape_cookie_file(cookies_file)
+    config = f"""link:
+  - {url}
+path: {str(output_dir)}
+music: false
+cover: false
+avatar: false
+json: true
+folderstyle: false
+filename_template: "{{id}}"
+folder_template: "{{id}}"
+mode:
+  - post
+number:
+  post: 1
+  like: 0
+  allmix: 0
+  mix: 0
+  music: 0
+  collect: 0
+  collectmix: 0
+increase:
+  post: false
+  like: false
+  allmix: false
+  mix: false
+  music: false
+thread: 1
+retry_times: 1
+proxy: ""
+database: false
+database_path: dy_downloader.db
+progress:
+  quiet_logs: true
+transcript:
+  enabled: false
+browser_fallback:
+  enabled: false
+comments:
+  enabled: false
+cookies:
+  msToken: "{cookies.get('msToken', '')}"
+  ttwid: "{cookies.get('ttwid', '')}"
+  odin_tt: "{cookies.get('odin_tt', '')}"
+  passport_csrf_token: "{cookies.get('passport_csrf_token', '')}"
+  sid_guard: "{cookies.get('sid_guard', '')}"
+"""
+    config_path.write_text(config, encoding="utf-8")
+
+
+def download_video_with_douyin_downloader(
     url: str,
     temp_dir: Path,
-    duration: str,
-    fallback_duration: float,
-    max_duration: float,
-    warmup: float,
-    auto_audio: bool = False,
-    audio_required: bool = False,
-    headless: str = "auto",
+    cookies_file: str = "",
+    downloader_path: str = "",
 ) -> Path:
-    if headless in {"auto", "always"}:
-        headless_recorder = SKILL_DIR / "scripts" / "record_webpage_headless.js"
-        node = shutil.which("node") or shutil.which("node.exe")
-        if headless_recorder.exists() and node:
-            output_path = temp_dir / "headless-browser-capture.mp4"
-            cmd = [
-                node,
-                str(headless_recorder),
-                url,
-                "--duration",
-                str(duration),
-                "--fallbackDuration",
-                str(max(1.0, fallback_duration)),
-                "--maxDuration",
-                str(max(1.0, max_duration)),
-                "--warmup",
-                str(max(0.0, warmup)),
-                "--output",
-                str(output_path),
-            ]
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode == 0 and output_path.exists() and output_path.stat().st_size > 0:
-                return output_path
-            if headless == "always":
-                error = (result.stderr or result.stdout or "").strip()
-                raise RuntimeError(f"Headless browser recording failed: {error}")
-
-    recorder = SKILL_DIR / "scripts" / "record_webpage_playback.py"
-    if not recorder.exists():
-        raise RuntimeError(f"Browser recording fallback script not found: {recorder}")
-    output_path = temp_dir / "browser-playback-capture.mp4"
-    if duration == "auto":
-        desktop_duration = fallback_duration
-    else:
-        desktop_duration = float(duration)
+    parsed = urllib.parse.urlparse(url)
+    if "douyin.com" not in parsed.netloc.lower():
+        raise RuntimeError("douyin-downloader fallback only supports douyin.com URLs.")
+    project_path = find_douyin_downloader_path(downloader_path)
+    if not project_path:
+        raise RuntimeError(
+            "douyin-downloader fallback requested, but no local clone was found. "
+            "Clone https://github.com/jiji262/douyin-downloader and pass --douyin-downloader-path."
+        )
+    output_dir = temp_dir / "douyin-downloader-output"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    config_path = temp_dir / "douyin-downloader-config.yml"
+    write_douyin_downloader_config(config_path, url, output_dir, cookies_file)
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONUTF8"] = "1"
+    env["TERM"] = "dumb"
+    env["NO_COLOR"] = "1"
     cmd = [
         sys.executable,
-        str(recorder),
+        str(project_path / "run.py"),
+        "-c",
+        str(config_path),
+        "-u",
         url,
-        "--duration",
-        str(min(max(3.0, desktop_duration), max_duration)),
-        "--warmup",
-        str(max(0.0, warmup)),
-        "--output",
-        str(output_path),
+        "-p",
+        str(output_dir),
+        "--show-warnings",
     ]
-    if auto_audio:
-        cmd.append("--auto-audio")
-    if audio_required:
-        cmd.append("--audio-required")
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, cwd=str(project_path), env=env, capture_output=True, text=True)
     if result.returncode != 0:
         error = (result.stderr or result.stdout or "").strip()
-        raise RuntimeError(f"Browser playback recording failed: {error}")
-    if not output_path.exists() or output_path.stat().st_size == 0:
-        raise RuntimeError("Browser playback recording completed but no video file was produced.")
-    return output_path
+        raise RuntimeError(f"douyin-downloader failed: {error}")
+    video_path = find_downloaded_video_recursive(output_dir)
+    if not video_path:
+        raise RuntimeError("douyin-downloader completed but no downloaded video file was found.")
+    return video_path
 
 
 def candidate_cookie_browsers(cookies_from_browser: str, auto_cookies: bool) -> list[str]:
@@ -572,14 +611,8 @@ def resolve_video_source(
     cookies: str = "",
     cookies_from_browser: str = "",
     auto_cookies: bool = False,
-    browser_record_fallback: bool = False,
-    browser_record_duration: str = "auto",
-    browser_record_fallback_duration: float = 60.0,
-    browser_record_max_duration: float = 300.0,
-    browser_record_warmup: float = 8.0,
-    browser_record_auto_audio: bool = False,
-    browser_record_audio_required: bool = False,
-    browser_record_headless: str = "auto",
+    douyin_downloader_fallback: bool = False,
+    douyin_downloader_path: str = "",
 ) -> tuple[Path, str | None]:
     source_input = normalize_source_input(url_or_path)
     if not is_url(source_input):
@@ -634,21 +667,16 @@ def resolve_video_source(
             "Recovery suggestions:\n"
             f"{help_text}"
         )
-        if browser_record_fallback:
+        if douyin_downloader_fallback:
             try:
-                return record_webpage_playback(
+                return download_video_with_douyin_downloader(
                     normalized_url,
                     temp_dir,
-                    duration=browser_record_duration,
-                    fallback_duration=browser_record_fallback_duration,
-                    max_duration=browser_record_max_duration,
-                    warmup=browser_record_warmup,
-                    auto_audio=browser_record_auto_audio,
-                    audio_required=browser_record_audio_required,
-                    headless=browser_record_headless,
+                    cookies_file=cookies,
+                    downloader_path=douyin_downloader_path,
                 ), source_input
             except Exception as exc:
-                raise RuntimeError(f"{download_error}\nBrowser recording fallback error: {exc}") from exc
+                raise RuntimeError(f"{download_error}\ndouyin-downloader fallback error: {exc}") from exc
         raise RuntimeError(download_error)
     help_text = build_download_failure_help(source_input, normalized_url, str(direct_error))
     download_error = (
@@ -657,21 +685,16 @@ def resolve_video_source(
         "Recovery suggestions:\n"
         f"{help_text}"
     )
-    if browser_record_fallback:
+    if douyin_downloader_fallback:
         try:
-            return record_webpage_playback(
+            return download_video_with_douyin_downloader(
                 normalized_url,
                 temp_dir,
-                duration=browser_record_duration,
-                fallback_duration=browser_record_fallback_duration,
-                max_duration=browser_record_max_duration,
-                warmup=browser_record_warmup,
-                auto_audio=browser_record_auto_audio,
-                audio_required=browser_record_audio_required,
-                headless=browser_record_headless,
+                cookies_file=cookies,
+                downloader_path=douyin_downloader_path,
             ), source_input
         except Exception as exc:
-            raise RuntimeError(f"{download_error}\nBrowser recording fallback error: {exc}") from exc
+            raise RuntimeError(f"{download_error}\ndouyin-downloader fallback error: {exc}") from exc
     raise RuntimeError(download_error)
 
 
@@ -3881,14 +3904,8 @@ def main() -> int:
             cookies=args.cookies,
             cookies_from_browser=args.cookies_from_browser,
             auto_cookies=args.auto_cookies,
-            browser_record_fallback=args.browser_record_fallback,
-            browser_record_duration=args.browser_record_duration,
-            browser_record_fallback_duration=args.browser_record_fallback_duration,
-            browser_record_max_duration=args.browser_record_max_duration,
-            browser_record_warmup=args.browser_record_warmup,
-            browser_record_auto_audio=args.browser_record_auto_audio,
-            browser_record_audio_required=args.browser_record_audio_required,
-            browser_record_headless=args.browser_record_headless,
+            douyin_downloader_fallback=args.douyin_downloader_fallback,
+            douyin_downloader_path=args.douyin_downloader_path,
         )
 
         result = analyze(
