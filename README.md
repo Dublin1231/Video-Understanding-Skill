@@ -2,9 +2,11 @@
 
 # 🎬 Video Understanding Skill
 
-把本地视频变成可检索、可复用、可沉淀的知识资产�?
-它会同时听口播、看画面、读屏幕文字，并把视频内容整理成带时间戳证据�?Markdown�?
-[English](README.en.md) | [完整 Skill 说明](SKILL.md)
+让 Codex 看懂、听懂本地视频与视频链接，并整理成可复用的知识 Markdown。
+
+它可以转写口播、识别画面变化、读取屏幕文字，并尽量保留可追溯的时间戳证据。
+
+[English](README.en.md) | [Skill Guide](SKILL.md)
 
 ![Codex Skill](https://img.shields.io/badge/Codex-Skill-blue)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-yellow)
@@ -18,190 +20,173 @@
 
 ## 为什么需要它
 
-普通的视频总结很容易停留在“抽几帧 + 猜大意”：口播和画面对不上，长视频后半段被忽略，屏幕里的文档和字幕也经常丢失�?
-`video-understanding` 把视频理解拆成一条更可靠的工作流：先转写音频，再按画面变化采样，结合 OCR、文档抽取和时间线对齐，最后输出可以直接进入知识库�?Markdown�?
-适合这些场景�?
-- 课程、播客、访谈、教程的口播整理
-- 屏幕录制、产品演示、软件教学的视频理解
-- 视频中文档、文章、笔记、课程页�?Markdown 提取
-- 将博主内容沉淀�?Obsidian、Notion 或个人知识库素材
+普通视频总结很容易只抽几张图就开始猜：口播和画面不同步，后半段内容被跳过，屏幕里的文档、字幕、课程页也容易漏掉。
+
+`video-understanding` 把视频理解变成一套稳定流程：提取音频、转写口播、按画面变化采样、OCR 识别文字、提取文档正文，并把证据整理成时间线和 Markdown。
+
+适合这些场景：
+
+- 博主视频、课程、播客、访谈、教程
+- 屏幕录制、产品演示、软件操作 walkthrough
+- 把视频里的文章、文档、笔记、课件提取成 Markdown
+- 把视频内容整理进 Obsidian、Notion 或个人知识库
 
 ---
 
-## ⚠️ 重要说明
+## 安全提醒
 
-这个仓库适合公开发布，但只应该包含源码和文档�?
-请不要提交本地凭据、私有配置、本地模型、二进制工具、视频素材、转写结果或生成报告。仓库已经配�?`.gitignore`，默认排�?`models/`、`vendor/`、`tools/`、`outputs/`、媒体文件和常见本地缓存�?
+这个仓库只应该提交源码和说明。
+
+不要提交密钥、本地配置、下载的模型、二进制工具、视频、转写稿、截图或生成报告。仓库的 `.gitignore` 已经排除了 `models/`、`vendor/`、`tools/`、`outputs/`、媒体文件和常见本地缓存。
+
 ---
 
-## 🌱 小白安装方式
+## 新手安装
 
-如果你不熟悉命令行，可以直接把这个仓库链接发给你�?AI 助手�?Codex，让它帮你安装：
+如果你不熟悉命令行，可以直接把这个仓库链接发给 AI 助手或 Codex，让它帮你安装：
 
 ```text
 https://github.com/Dublin1231/Video-Understanding-Skill
 ```
 
-你可以这样说�?
+示例提示词：
+
 ```text
-请帮我安装这�?Codex skill，并检查本地依赖是否可用：
+请帮我安装这个 Codex skill，并检查本机的视频理解依赖是否可用：
 https://github.com/Dublin1231/Video-Understanding-Skill
 ```
 
-AI 会帮你把 skill 放到正确目录，并根据你的电脑环境检�?Python、FFmpeg、本地转写和 OCR 依赖�?
----
-
-## 📸 效果预览
-
-### 🎙�?口播整理成知�?Markdown
-
-```markdown
-# 博主口播整理为知�?Markdown
-
-## 核心观点（生成整理）
-- Obsidian 是这套系统的长期记忆，负责沉淀任务、卡片、时间计划和个人经验�?- Claude Code 更适合长上下文深度工作，因为它能调用已有知识库组织内容�?- OpenClaw 更适合轻量、随手、移动端入口，接收想法、链接、日志和任务�?
-## 原始口播摘录（带时间戳）
-
-### 01:03 - 02:15 知识库作为长期记�?
-**整理摘要:** �?Obsidian 承载任务、卡片和时间三类笔记，让 AI 能读取个人经验、目标和工作规则�?
-**原文摘录:** ...
-```
-
-### 📄 视频中的文档提取�?Markdown
-
-```markdown
-# 文档内容
-
-## 画面 @ 62.23s
-
-这里保留视频画面中实际识别到的文档文字�?```
+助手可以帮你放到正确目录，并检查 Python、FFmpeg、本地转写和 OCR 依赖。
 
 ---
 
-## �?核心功能
+## 功能一览
 
 | 功能 | 说明 |
 | --- | --- |
-| 🔗 视频链接分析 | 支持本地视频路径、直接视�?URL，以�?`yt-dlp` 可下载的网页视频链接 |
-| 🎙�?口播转写 | 从视频音轨中提取讲解者、博主或课程口播 |
-| 🧠 口播知识 Markdown | 将转写内容整理成核心观点、方法流程、案例和原文摘录 |
-| 🎞�?变化即采�?| 根据页面变化、版式变化、标题变化和章节导航选择采样�?|
-| 🔎 中英�?OCR | 识别屏幕录制、课程页、文档页中的文字 |
-| 📄 文档抽取 | 将视频中展示的文章、笔记、课程页提取�?Markdown |
-| 🧭 时间线对�?| 对齐画面帧、口播片段、OCR 证据和时间戳 |
-| 🛟 本地兜底 | 远程转写不可用时，可用本�?Whisper 路径继续生成 transcript |
+| 🔗 视频链接分析 | 支持本地视频、直接视频 URL，以及 `yt-dlp` 可下载的网页视频 |
+| 🎙️ 口播转写 | 提取博主、讲师或演示者的音频内容 |
+| 🧠 口播转知识 Markdown | 把转写整理成核心观点、流程、案例和时间戳摘录 |
+| 🎞️ 变化感知采样 | 根据页面、版式、标题和章节导航变化采样画面 |
+| 🔎 中英文 OCR | 识别屏幕录制、课程页、文档视图里的文字 |
+| 📄 文档提取 | 把视频里展示的文章、笔记、课件、文档转成 Markdown |
+| 🧭 时间线对齐 | 对齐画面、转写、OCR 和时间戳证据 |
+| 🛟 本地 fallback | 远程转写不可用时，可用本地 Whisper 继续产出转写 |
 
 ---
 
-## 🧩 工作流程
+## 工作流程
 
 ```mermaid
 flowchart LR
-  A["本地路径 / 视频直链 / 网页视频链接"] --> B{"解析来源"}
+  A["本地路径 / 直接视频 URL / 网页视频链接"] --> B{"解析来源"}
   B -->|"本地文件"| C["读取视频"]
-  B -->|"视频直链"| D["下载视频文件"]
-  B -->|"网页链接"| E["yt-dlp 下载视频"]
-  C --> F["抽取音频"]
+  B -->|"直接媒体 URL"| D["下载视频文件"]
+  B -->|"网页链接"| E["yt-dlp 下载"]
+  E -->|"抖音失败"| E2["douyin-downloader fallback"]
+  C --> F["提取音频"]
   D --> F
   E --> F
+  E2 --> F
   C --> G["采样画面"]
   D --> G
   E --> G
-  F --> H["语音转写 / 本地 Whisper 兜底"]
-  G --> I["画面变化检�?+ OCR"]
-  H --> J["时间线证�?]
+  E2 --> G
+  F --> H["口播转写 / 本地 Whisper fallback"]
+  G --> I["画面变化检测 + OCR"]
+  H --> J["时间线证据"]
   I --> J
-  J --> K["视频理解报告"]
+  J --> K["视频报告"]
   J --> L["文档 Markdown"]
   J --> M["口播知识 Markdown"]
 ```
 
 ---
 
-## 📦 安装与依�?
-| 依赖 | 是否必需 | 用�?|
-| --- | --- | --- |
-| Python 3.11+ | 必需 | 运行脚本 |
-| FFmpeg | 必需 | 抽取音频和视频帧 |
-| `openai` | 可�?| 远程转写和多模态总结 |
-| `faster-whisper` | 可�?| 本地离线转写 |
-| `yt-dlp` | 可�?| 下载网页视频链接 |
-| `pillow` | 可�?| 图像处理 |
-| `pytesseract` | 可�?| OCR |
-| Tesseract 语言数据 | 可�?| 改善中英�?OCR |
+## 安装依赖
 
-安装 Python 依赖�?
+| 依赖 | 是否必须 | 用途 |
+| --- | --- | --- |
+| Python 3.11+ | 必须 | 运行脚本 |
+| FFmpeg | 必须 | 提取音频和画面 |
+| `openai` | 可选 | 远程转写和多模态总结 |
+| `faster-whisper` | 可选 | 本地离线转写 |
+| `yt-dlp` | 可选 | 下载网页视频链接 |
+| `pillow` | 可选 | 图像处理 |
+| `pytesseract` | 可选 | OCR |
+| Tesseract 语言包 | 可选 | 提升中英文 OCR 效果 |
+
+安装 Python 包：
+
 ```powershell
 python -m pip install openai faster-whisper yt-dlp pillow pytesseract
 ```
 
-第一次运行本地转写时，模型可能会下载�?`models/`。该目录已被 Git 忽略�?
+第一次本地转写可能会下载模型到 `models/`，这个目录不会提交到 Git。
+
 ---
 
-## 🧠 模型配置
+## 模型配置
 
-这个 skill 支持两类模型：一个负责“听音频”，一个负责“看画面并总结”。如果只做口播转知识 Markdown，可以完全走本地模型，不需要远程模型�?
-| 场景 | 推荐配置 | 说明 |
+这个 skill 有两条模型路径：一条用于听音频，一条用于画面/多模态总结。如果只做“口播转知识 Markdown”，可以完全走本地转写路径。
+
+| 用途 | 推荐配置 | 说明 |
 | --- | --- | --- |
-| 只转写口播并整理�?Markdown | `--speech-only` + `--local-whisper-model small` | 最适合新手，稳定、隐私更好、无需上传画面 |
-| 视频理解报告 | `--model <你的多模态模�?` | 用于综合分析画面、OCR、口播和时间�?|
-| 远程转写失败时兜�?| `--local-whisper-model small` | 远程转写不可用时自动使用本地 Whisper |
-| 更快的本地转�?| `--local-whisper-model base` | 速度更快，但准确率通常低一�?|
-| 更准的本地转�?| `--local-whisper-model medium` | 准确率更高，但更慢、更吃内�?|
+| 只把口播转成 Markdown | `--speech-only --local-whisper-model small` | 新手最稳路径，本地运行 |
+| 完整视频理解报告 | `--model <你的多模态模型>` | 结合画面、OCR、口播和时间线 |
+| 远程转写失败 fallback | `--local-whisper-model small` | 远程不可用时自动走本地 |
+| 更快本地转写 | `--local-whisper-model base` | 更快但通常没那么准 |
+| 更准本地转写 | `--local-whisper-model medium` | 更准但更慢、更占资源 |
 
-常用参数�?
+常用参数：
+
 ```powershell
 --model "gpt-5.4"
 --transcribe-model "gpt-4o-transcribe-diarize"
 --local-whisper-model "small"
 ```
 
-新手建议先使用默认配置。如果你不确定自己的模型、网关或本地环境怎么配，可以把仓库链接发�?AI，让它根据你的电脑环境帮你检查并生成命令�?
 ---
 
-## 🔑 密钥与接口地址配置
+## API Key 和 Base URL
 
-如果你只使用 `--speech-only` 加本�?Whisper，可以不配置远程接口�? 
-如果你要生成完整视频理解报告，或者使用远程转�?多模态模型，需要在本机环境变量中配置密钥和接口地址�?
-### Windows PowerShell
+如果只使用 `--speech-only` 加本地 Whisper，不需要远程 API。
 
-临时配置，只对当�?PowerShell 窗口有效�?
-```powershell
-$env:OPENAI_API_KEY = "<你的密钥>"
-$env:OPENAI_BASE_URL = "<你的接口地址>"
-```
+如果要完整视频理解报告、远程转写或多模态总结，请在本地环境变量中配置 key 和 base URL。
 
-长期配置，写入当前用户环境变量：
+Windows PowerShell 当前窗口临时配置：
 
 ```powershell
-[Environment]::SetEnvironmentVariable("OPENAI_API_KEY", "<你的密钥>", "User")
-[Environment]::SetEnvironmentVariable("OPENAI_BASE_URL", "<你的接口地址>", "User")
+$env:OPENAI_API_KEY = "<your_key>"
+$env:OPENAI_BASE_URL = "<your_base_url>"
 ```
 
-设置后重新打开终端，再运行脚本�?
-### macOS / Linux
+Windows 当前用户永久配置：
 
-临时配置，只对当前终端有效：
-
-```bash
-export OPENAI_API_KEY="<你的密钥>"
-export OPENAI_BASE_URL="<你的接口地址>"
+```powershell
+[Environment]::SetEnvironmentVariable("OPENAI_API_KEY", "<your_key>", "User")
+[Environment]::SetEnvironmentVariable("OPENAI_BASE_URL", "<your_base_url>", "User")
 ```
 
-如果使用官方接口，通常只需要配置密钥；如果使用兼容网关或自定义服务，再配置接口地址�?
-### 配置建议
+配置后重启终端。
 
-- 不要把真实密钥写�?README、脚本、聊天记录截图或 Git 提交�?- 不确定接口地址怎么填时，把你的服务商文档发�?AI，让它帮你确认�?- 配置完成后，可以先运�?`python scripts/capability_probe.py` 检查环境是否识别成功�?
+安全建议：
+
+- 不要把真实密钥写进 README、脚本、截图或 Git 提交。
+- 如果不确定 base URL，交给 AI 助手帮你根据服务商文档检查。
+- 配置后运行 `python scripts/capability_probe.py` 检查环境。
+
 ---
 
-## 🚀 快速开�?
-检查本地能力：
+## 快速开始
+
+检查本机能力：
 
 ```powershell
 python scripts/capability_probe.py
 ```
 
-理解一个视频：
+分析本地视频：
 
 ```powershell
 python scripts/analyze_video_with_openai.py "C:\path\to\video.mp4" `
@@ -211,7 +196,7 @@ python scripts/analyze_video_with_openai.py "C:\path\to\video.mp4" `
   --report-json "outputs\video-report.json"
 ```
 
-也可以直接传入视频链接：
+分析直接视频 URL：
 
 ```powershell
 python scripts/analyze_video_with_openai.py "https://example.com/video.mp4" `
@@ -220,9 +205,14 @@ python scripts/analyze_video_with_openai.py "https://example.com/video.mp4" `
   --report-md "outputs\video-report.md"
 ```
 
-脚本会先尝试直链下载；如果链接是网页，会在安装了 `yt-dlp` 的情况下自动尝试下载视频。实际支持范围取决于 `yt-dlp`、网络环境、登录状态、课程权限和视频是否�?DRM 保护�?
-如果网页链接下载失败，可以把链接发给 AI，让它帮你安�?配置 `yt-dlp`，或让它先把视频下载成本地文件后再分析�?
-对于抖音、小红书、课程平台、私有内容等需要登录态的网站，最稳的方式是提�?Netscape 格式�?`cookies.txt`�?
+脚本会先尝试直接下载；如果是网页链接，会在安装了 `yt-dlp` 的情况下尝试下载。实际支持范围取决于 `yt-dlp`、网络、登录状态、课程权限和 DRM。
+
+---
+
+## Cookies 和登录态
+
+对于抖音、小红书、课程平台、私有内容等需要登录态的网站，最稳的方式是提供 Netscape 格式的 `cookies.txt`：
+
 ```powershell
 python scripts/analyze_video_with_openai.py "https://v.douyin.com/xxxx/" `
   --cookies "C:\path\to\cookies.txt" `
@@ -230,59 +220,78 @@ python scripts/analyze_video_with_openai.py "https://v.douyin.com/xxxx/" `
   --extract-speech-md "outputs\speech-knowledge.md"
 ```
 
-也可以尝试让 `yt-dlp` 从浏览器读取 cookies，但�?Windows 的新�?Chrome/Edge 上，这一步可能会因为 DPAPI / App-Bound Encryption 无法解密而失败：
+Chrome/Edge 新版本在 Windows 上可能因为 DPAPI / App-Bound Encryption 导致 `--cookies-from-browser chrome` 失败。出现 `Failed to decrypt with DPAPI` 时，推荐导出 `cookies.txt`。
 
-```powershell
-python scripts/analyze_video_with_openai.py "https://v.douyin.com/xxxx/" `
-  --cookies-from-browser chrome `
-  --speech-only `
-  --extract-speech-md "outputs\speech-knowledge.md"
-```
+不要把 `cookies.txt` 上传到 GitHub，也不要发给陌生人；它等同于一段临时登录凭据。
 
-如果不确定自己用的是哪个浏览器，可以让脚本自动尝试常见浏览器�?
-```powershell
-python scripts/analyze_video_with_openai.py "https://v.douyin.com/xxxx/" `
-  --cookies-from-browser auto `
-  --speech-only `
-  --extract-speech-md "outputs\speech-knowledge.md"
-```
+### 用 Get cookies.txt LOCALLY 导出
 
-也可以使�?`--auto-cookies`，让普通网页下载失败后自动尝试浏览�?cookies�?
-如果出现 `Failed to decrypt with DPAPI`，说明不是链接问题，而是 Chrome/Edge 的本机加密阻止了外部程序读取 cookies。推荐改用下面任一方式�?
-- 用可信浏览器扩展导出当前站点�?Netscape 格式 `cookies.txt`，然后使�?`--cookies "C:\path\to\cookies.txt"`�?- 如果 Firefox 里已经登录该网站，可以尝�?`--cookies-from-browser firefox`�?- 如果仍然失败，先把视频下载成本地 `.mp4`，再交给 skill 分析�?
-不要�?`cookies.txt` 上传�?GitHub，也不要发给陌生人；它等同于一段临时登录凭据�?
-### 用浏览器插件导出 cookies.txt
+如果你使用 **Get cookies.txt LOCALLY** 这类浏览器扩展：
 
-如果你使用的�?**Get cookies.txt LOCALLY** 这类浏览器扩展，可以这样做：
+1. 先在浏览器里打开目标视频页，并确认能正常播放。
+2. 点击浏览器右上角的 **Get cookies.txt LOCALLY** 插件图标。
+3. 确认弹窗标题类似 `Get cookies.txt for https://www.douyin.com/...`。
+4. `Export Format` 选择 **Netscape**。
+5. 点击左上角蓝色 **Export**，只导出当前站点 cookies。
+6. 不要点击 **Export All Cookies**，它会导出所有网站 cookies，范围太大。
+7. 保存为类似 `C:\Users\你的用户名\Downloads\www.douyin.com_cookies.txt`。
 
-1. 先在浏览器里打开目标视频页面，并确认视频能正常播放�?2. 点击浏览器右上角�?**Get cookies.txt LOCALLY** 插件图标�?3. 确认页面标题类似 `Get cookies.txt for https://www.douyin.com/...`，说明当前导出的是目标站点�?4. `Export Format` 选择 **Netscape**�?5. 点击左上角蓝�?**Export**，只导出当前站点 cookies�?6. 不要点击 **Export All Cookies**，它会导出所有网�?cookies，范围太大�?7. 保存成例�?`C:\Users\你的用户名\Downloads\www.douyin.com_cookies.txt`�?
-然后这样传给 skill�?
+然后这样传给 skill：
+
 ```powershell
 python scripts/analyze_video_with_openai.py "https://www.douyin.com/video/7623595912924777780" `
   --cookies "C:\Users\你的用户名\Downloads\www.douyin.com_cookies.txt" `
-  --douyin-downloader-fallback `
   --ocr `
   --report-md "outputs\web-video-report.md"
 ```
 
 ---
 
-## 🧭 按需求选择功能
+## 抖音专用 fallback
 
-| 你的需�?| 推荐用法 |
-| --- | --- |
-| 我想知道视频讲了什么、画面发生了什�?| 使用完整视频分析，开�?`--ocr`，输�?`--report-md` |
-| 我只想把博主口播整理成知识笔�?| 使用 `--speech-only --speech-md-mode knowledge` |
-| 我想要带时间戳的原始转写�?| 使用 `--speech-only --speech-md-mode literal` |
-| 我想提取视频里展示的文档/文章 | 使用 `--doc-only --doc-md-mode literal` |
-| 我想分析屏幕录制里的每次页面变化 | 使用 `--sampling-mode all-changes --scene-detection --screen-layout-filter` |
-| 我的视频有底部章节导航或课程目录 | 增加 `--title-ocr-filter --chapter-nav-filter --same-chapter-dedupe-filter` |
+如果 `yt-dlp` 对抖音链接失败，可以接入 [jiji262/douyin-downloader](https://github.com/jiji262/douyin-downloader) 作为专用 fallback。
+
+这个 fallback 已经本地测试过：同一个抖音链接和同一份 cookies，`yt-dlp` 失败，但 `douyin-downloader` 成功下载到完整 mp4。
+
+先准备工具：
+
+```powershell
+git clone https://github.com/jiji262/douyin-downloader.git C:\Tools\douyin-downloader
+python -m pip install -r C:\Tools\douyin-downloader\requirements.txt
+```
+
+然后运行：
+
+```powershell
+python scripts/analyze_video_with_openai.py "https://www.douyin.com/video/7623595912924777780" `
+  --cookies "C:\Users\你的用户名\Downloads\www.douyin.com_cookies.txt" `
+  --douyin-downloader-fallback `
+  --douyin-downloader-path "C:\Tools\douyin-downloader" `
+  --ocr `
+  --report-md "outputs\web-video-report.md"
+```
+
+执行顺序是：先直接下载，再 `yt-dlp`，如果仍失败且是抖音链接，再调用 douyin-downloader。最终下载到的 mp4 会进入原本的视频理解流程。
 
 ---
 
-## 🎙�?口播转知�?Markdown
+## 按需求选择功能
 
-适合将博主讲解、课程音频、演示口播整理成知识库笔记�?
+| 你的需求 | 推荐用法 |
+| --- | --- |
+| 我想知道视频讲了什么、画面发生了什么 | 完整分析，开启 `--ocr`，输出 `--report-md` |
+| 我只想把博主口播整理成知识笔记 | `--speech-only --speech-md-mode knowledge` |
+| 我想要带时间戳的原始转写稿 | `--speech-only --speech-md-mode literal` |
+| 我想提取视频里展示的文档/文章 | `--doc-only --doc-md-mode literal` |
+| 我想分析屏幕录制里的每次页面变化 | `--sampling-mode all-changes --scene-detection --screen-layout-filter` |
+| 我的视频有底部章节导航或课程目录 | 加 `--title-ocr-filter --chapter-nav-filter --same-chapter-dedupe-filter` |
+
+---
+
+## 口播转知识 Markdown
+
+适合把博主讲解、课程音频、演示口播整理成知识库笔记。
+
 ```powershell
 python scripts/analyze_video_with_openai.py "C:\path\to\video.mp4" `
   --speech-only `
@@ -293,14 +302,15 @@ python scripts/analyze_video_with_openai.py "C:\path\to\video.mp4" `
 
 | 模式 | 输出 |
 | --- | --- |
-| `knowledge` | 生成知识结构，并保留带时间戳的原始摘�?|
+| `knowledge` | 生成知识结构，并保留带时间戳的原始摘录 |
 | `literal` | 只按时间整理原始转写 |
 
 ---
 
-## 📄 视频文档提取�?Markdown
+## 视频文档提取为 Markdown
 
-适合视频里有人讲解文章、文档、笔记、课程页或幻灯片的场景�?
+适合视频里有人讲解文章、文档、笔记、课程页或幻灯片的场景。
+
 ```powershell
 python scripts/analyze_video_with_openai.py "C:\path\to\video.mp4" `
   --sampling-mode all-changes `
@@ -317,25 +327,24 @@ python scripts/analyze_video_with_openai.py "C:\path\to\video.mp4" `
 | 模式 | 适用场景 |
 | --- | --- |
 | `literal` | 尽量保留画面中真实出现的文字 |
-| `polished` | 将提取内容整理成生成标题和知识段�?|
+| `polished` | 将提取内容整理成生成标题和知识段落 |
 
-如果需要“视频中确实出现过的文字”，请使�?`literal`。如果可以接受生成标题和重组结构，再使用 `polished`�?
+如果需要“视频中确实出现过的文字”，请使用 `literal`。如果可以接受生成标题和重组结构，再使用 `polished`。
+
 ---
 
-## 🗂�?文件结构
+## 文件结构
 
 ```text
 video-understanding/
 ├── README.md
 ├── README.en.md
 ├── SKILL.md
-├── agents/
-�?  └── openai.yaml
 ├── references/
-�?  ├── native-openai-path.md
-�?  ├── openai-hybrid-path.md
-�?  ├── prompt-templates.md
-�?  └── timeline-pipeline.md
+│   ├── native-openai-path.md
+│   ├── openai-hybrid-path.md
+│   ├── prompt-templates.md
+│   └── timeline-pipeline.md
 └── scripts/
     ├── analyze_video_with_openai.py
     ├── build_analysis_brief.py
@@ -344,33 +353,28 @@ video-understanding/
 
 ---
 
-## 🛠�?常见问题
+## 常见问题
 
-| 问题 | 解决方案 |
+| 问题 | 处理方式 |
 | --- | --- |
-| 提示缺少 FFmpeg | 安装 FFmpeg，并确保命令行可以直接调�?|
-| 远程转写不可�?| 使用 `--speech-only` 走本地转写路�?|
-| OCR 效果不好 | 安装 Tesseract 中英文语言数据 |
-| 输出里有生成标题 | 需要忠于视频原文时使用 `literal` |
-| Git 里出现大文件 | 检�?`.gitignore`，不要提交本地模型、工具、依赖和输出 |
+| 缺 FFmpeg | 安装 FFmpeg，并确保命令行能找到 |
+| 远程转写不可用 | 使用 `--speech-only` 走本地转写 |
+| OCR 效果差 | 安装 Tesseract 中英文语言包 |
+| 输出出现生成标题 | 需要忠实原文时使用 `literal` 模式 |
+| Git 状态里出现大文件 | 检查 `.gitignore`，不要提交模型、工具、依赖或输出 |
 
 ---
 
-## 🗺�?后续方向
+## Roadmap
 
-- 更稳定的长视频章节采�?- 更保守的文档抽取�?OCR 清洗
+- 更稳定的长视频章节采样
+- 更保守的文档提取和 OCR 清洗
 - 可选说话人分离摘要
 - Obsidian frontmatter 输出
-- Markdown 中附带截图引�?
+- 在 Markdown 中引用关键截图
+
 ---
 
-## 🤝 贡献
+## License
 
-欢迎提交 Issue �?PR，尤其是�?
-- 新的视频类型测试样例
-- OCR 纠错词表
-- 更好的中文知识整理规�?- 跨平台安装说�?- 文档和示例改�?
----
-
-## 📜 许可�?
-MIT License. 可自由使用、修改和分发�?
+MIT License. Free to use, modify, and distribute.
