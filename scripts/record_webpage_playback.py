@@ -40,6 +40,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--auto-audio", action="store_true", help="Try to auto-select a system playback/virtual audio device")
     parser.add_argument("--audio-required", action="store_true", help="Fail if no audio device is selected or auto-detected")
     parser.add_argument("--list-devices", action="store_true", help="List DirectShow devices and exit")
+    parser.add_argument("--audio-help", action="store_true", help="Print Windows system-audio setup guidance and exit")
     parser.add_argument("--no-open", action="store_true", help="Do not open the URL; record the current desktop")
     parser.add_argument("--draw-mouse", action="store_true", help="Include the mouse cursor in the capture")
     return parser.parse_args()
@@ -90,16 +91,16 @@ def choose_audio_device(ffmpeg: str) -> str:
         r"loopback",
         r"speaker",
         r"speakers",
-        r"扬声器",
-        r"立体声混音",
-        r"系统声音",
+        "\u626c\u58f0\u5668",
+        "\u7acb\u4f53\u58f0\u6df7\u97f3",
+        "\u7cfb\u7edf\u58f0\u97f3",
         r"virtual",
-        r"虚拟",
+        "\u865a\u62df",
     ]
     reject_patterns = [
         r"\bmic\b",
         r"microphone",
-        r"麦克风",
+        "\u9ea6\u514b\u98ce",
         r"mic array",
     ]
     filtered_audio_devices = [
@@ -112,6 +113,16 @@ def choose_audio_device(ffmpeg: str) -> str:
             if re.search(pattern, name, re.IGNORECASE):
                 return name
     return ""
+
+
+def audio_setup_guidance() -> str:
+    return "\n".join([
+        "Audio setup guidance:",
+        "- Windows Stereo Mix: Settings > System > Sound > More sound settings > Recording. Right-click the blank area, enable Show Disabled Devices, then enable Stereo Mix if it exists.",
+        "- If Stereo Mix does not exist, install or enable a virtual audio cable / virtual sound card, then rerun --list-devices and pass the new device with --audio-device.",
+        "- If you only see microphones, do not auto-select them for browser playback; they usually capture room noise, not system audio.",
+        "- You can still record visuals only by removing --audio-required.",
+    ])
 
 
 def build_record_command(args: argparse.Namespace, ffmpeg: str, output_path: Path) -> list[str]:
@@ -151,6 +162,9 @@ def build_record_command(args: argparse.Namespace, ffmpeg: str, output_path: Pat
 def main() -> int:
     args = parse_args()
     ffmpeg = require_ffmpeg()
+    if args.audio_help:
+        print(audio_setup_guidance())
+        return 0
     if args.list_devices:
         return list_devices(ffmpeg)
 
@@ -163,10 +177,12 @@ def main() -> int:
                 "No system playback/loopback audio device was auto-detected; recording video only.",
                 file=sys.stderr,
             )
+            print(audio_setup_guidance(), file=sys.stderr)
     if args.audio_required and not args.audio_device:
         raise RuntimeError(
             "No audio device selected. Run with --list-devices, then pass --audio-device \"<device name>\", "
-            "or omit --audio-required to record visuals only."
+            "or omit --audio-required to record visuals only.\n"
+            f"{audio_setup_guidance()}"
         )
 
     output_path = Path(args.output).expanduser().resolve()

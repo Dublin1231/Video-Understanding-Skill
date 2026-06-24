@@ -320,6 +320,19 @@ python scripts/record_webpage_playback.py "https://www.douyin.com/video/76235959
 
 You can also use `--auto-audio` to let the script try to select a system playback/virtual audio device. It intentionally avoids plain microphones because microphones usually capture room noise, not browser audio. Add `--audio-required` when audio is mandatory and the command should fail instead of silently recording visuals only.
 
+If no system-audio device is detected, print local setup guidance:
+
+```powershell
+python scripts/record_webpage_playback.py --audio-help
+```
+
+Common Windows recovery order:
+
+- Try enabling Stereo Mix first: Settings > System > Sound > More sound settings > Recording. Right-click the blank area, enable "Show Disabled Devices", then enable "Stereo Mix" if it appears.
+- If Stereo Mix is unavailable, install or enable a virtual sound card / virtual audio cable, then rerun `--list-devices`.
+- When the new device appears, pass it with `--audio-device "Device Name"`.
+- Avoid plain microphones for browser videos because they capture room noise, keyboard noise, and echo.
+
 ---
 
 ## 🧭 Choose By Goal

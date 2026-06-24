@@ -215,6 +215,7 @@ Then analyze the captured file:
 
 Use `--list-devices` to inspect possible audio devices. If the machine exposes a stereo mix, loopback, or virtual audio device, pass it with `--audio-device "<device name>"`; otherwise the recording is visual-only.
 Use `--auto-audio` to let the script try to pick a system playback/loopback/virtual audio device. It intentionally avoids plain microphones when auto-selecting because microphones usually record room noise, not browser audio. Add `--audio-required` when the task must include audio and should fail instead of silently recording visuals only.
+Use `--audio-help` when no loopback device is available. It explains the Windows setup path: enable Stereo Mix if present, otherwise install/enable a virtual audio cable or virtual sound card, rerun `--list-devices`, then pass the discovered device name with `--audio-device`.
 
 Useful flags:
 

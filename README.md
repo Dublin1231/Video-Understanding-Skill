@@ -320,6 +320,19 @@ python scripts/record_webpage_playback.py "https://www.douyin.com/video/76235959
 
 也可以用 `--auto-audio` 自动尝试选择系统回放/虚拟音频设备。脚本会刻意避开普通麦克风，因为麦克风通常录到的是环境声，不是浏览器声音。如果这次任务必须带声音，可以加 `--audio-required`，找不到可用音频设备时直接失败并提示。
 
+如果没有检测到系统声音设备，可以先看本机引导：
+
+```powershell
+python scripts/record_webpage_playback.py --audio-help
+```
+
+Windows 常见处理顺序：
+
+- 先尝试开启 Stereo Mix：设置 > 系统 > 声音 > 更多声音设置 > 录制，右键空白处，勾选“显示禁用的设备”，如果看到“立体声混音 / Stereo Mix”就启用它。
+- 如果没有 Stereo Mix，可以安装或启用虚拟声卡 / Virtual Audio Cable，然后重新运行 `--list-devices`。
+- 看到新设备后，用 `--audio-device "设备名称"` 指定它。
+- 不建议用普通麦克风录浏览器视频，因为它会录到环境声、键盘声和回声。
+
 ---
 
 ## 🧭 按需求选择功能
