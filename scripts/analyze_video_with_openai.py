@@ -107,9 +107,26 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--browser-record-duration",
+        default="auto",
+        help="Seconds to record when --browser-record-fallback is used, or 'auto' to use webpage video duration when available.",
+    )
+    parser.add_argument(
+        "--browser-record-fallback-duration",
         type=float,
         default=60.0,
-        help="Seconds to record when --browser-record-fallback is used.",
+        help="Fallback seconds to record when --browser-record-duration auto cannot detect webpage video duration.",
+    )
+    parser.add_argument(
+        "--browser-record-max-duration",
+        type=float,
+        default=300.0,
+        help="Maximum seconds allowed for browser recording fallback.",
+    )
+    parser.add_argument(
+        "--browser-record-headless",
+        choices=["auto", "always", "never"],
+        default="auto",
+        help="Try headless background webpage recording before visible desktop recording.",
     )
     parser.add_argument(
         "--browser-record-warmup",
@@ -470,21 +487,55 @@ def download_video_with_ytdlp(
 def record_webpage_playback(
     url: str,
     temp_dir: Path,
-    duration: float,
+    duration: str,
+    fallback_duration: float,
+    max_duration: float,
     warmup: float,
     auto_audio: bool = False,
     audio_required: bool = False,
+    headless: str = "auto",
 ) -> Path:
+    if headless in {"auto", "always"}:
+        headless_recorder = SKILL_DIR / "scripts" / "record_webpage_headless.js"
+        node = shutil.which("node") or shutil.which("node.exe")
+        if headless_recorder.exists() and node:
+            output_path = temp_dir / "headless-browser-capture.mp4"
+            cmd = [
+                node,
+                str(headless_recorder),
+                url,
+                "--duration",
+                str(duration),
+                "--fallbackDuration",
+                str(max(1.0, fallback_duration)),
+                "--maxDuration",
+                str(max(1.0, max_duration)),
+                "--warmup",
+                str(max(0.0, warmup)),
+                "--output",
+                str(output_path),
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode == 0 and output_path.exists() and output_path.stat().st_size > 0:
+                return output_path
+            if headless == "always":
+                error = (result.stderr or result.stdout or "").strip()
+                raise RuntimeError(f"Headless browser recording failed: {error}")
+
     recorder = SKILL_DIR / "scripts" / "record_webpage_playback.py"
     if not recorder.exists():
         raise RuntimeError(f"Browser recording fallback script not found: {recorder}")
     output_path = temp_dir / "browser-playback-capture.mp4"
+    if duration == "auto":
+        desktop_duration = fallback_duration
+    else:
+        desktop_duration = float(duration)
     cmd = [
         sys.executable,
         str(recorder),
         url,
         "--duration",
-        str(max(3.0, duration)),
+        str(min(max(3.0, desktop_duration), max_duration)),
         "--warmup",
         str(max(0.0, warmup)),
         "--output",
@@ -522,10 +573,13 @@ def resolve_video_source(
     cookies_from_browser: str = "",
     auto_cookies: bool = False,
     browser_record_fallback: bool = False,
-    browser_record_duration: float = 60.0,
+    browser_record_duration: str = "auto",
+    browser_record_fallback_duration: float = 60.0,
+    browser_record_max_duration: float = 300.0,
     browser_record_warmup: float = 8.0,
     browser_record_auto_audio: bool = False,
     browser_record_audio_required: bool = False,
+    browser_record_headless: str = "auto",
 ) -> tuple[Path, str | None]:
     source_input = normalize_source_input(url_or_path)
     if not is_url(source_input):
@@ -586,9 +640,12 @@ def resolve_video_source(
                     normalized_url,
                     temp_dir,
                     duration=browser_record_duration,
+                    fallback_duration=browser_record_fallback_duration,
+                    max_duration=browser_record_max_duration,
                     warmup=browser_record_warmup,
                     auto_audio=browser_record_auto_audio,
                     audio_required=browser_record_audio_required,
+                    headless=browser_record_headless,
                 ), source_input
             except Exception as exc:
                 raise RuntimeError(f"{download_error}\nBrowser recording fallback error: {exc}") from exc
@@ -606,9 +663,12 @@ def resolve_video_source(
                 normalized_url,
                 temp_dir,
                 duration=browser_record_duration,
+                fallback_duration=browser_record_fallback_duration,
+                max_duration=browser_record_max_duration,
                 warmup=browser_record_warmup,
                 auto_audio=browser_record_auto_audio,
                 audio_required=browser_record_audio_required,
+                headless=browser_record_headless,
             ), source_input
         except Exception as exc:
             raise RuntimeError(f"{download_error}\nBrowser recording fallback error: {exc}") from exc
@@ -3823,9 +3883,12 @@ def main() -> int:
             auto_cookies=args.auto_cookies,
             browser_record_fallback=args.browser_record_fallback,
             browser_record_duration=args.browser_record_duration,
+            browser_record_fallback_duration=args.browser_record_fallback_duration,
+            browser_record_max_duration=args.browser_record_max_duration,
             browser_record_warmup=args.browser_record_warmup,
             browser_record_auto_audio=args.browser_record_auto_audio,
             browser_record_audio_required=args.browser_record_audio_required,
+            browser_record_headless=args.browser_record_headless,
         )
 
         result = analyze(

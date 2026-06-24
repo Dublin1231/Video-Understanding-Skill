@@ -67,7 +67,7 @@ Tell the user these choices when their goal is unclear:
 
 Accept local files, direct media URLs, and webpage video links. For URLs, the script first attempts direct media download, then falls back to `yt-dlp` when the URL is a webpage and `yt-dlp` is installed.
 
-If a webpage cannot be downloaded because of login, permissions, DRM, or site restrictions, use `--browser-record-fallback` when appropriate. The main analyzer will try direct download and `yt-dlp` first; only if those fail will it open/record browser playback into an mp4 and feed that mp4 into the normal analysis pipeline. It can reliably capture visuals; audio capture requires an available system loopback or virtual audio device.
+If a webpage cannot be downloaded because of login, permissions, DRM, or site restrictions, use `--browser-record-fallback` when appropriate. The main analyzer will try direct download and `yt-dlp` first; only if those fail will it record browser playback into an mp4 and feed that mp4 into the normal analysis pipeline. It tries headless/background recording first, then falls back to visible desktop recording when headless capture fails. Headless recording can auto-use the webpage `video.duration` when available; audio capture still requires visible desktop recording plus a system loopback or virtual audio device.
 
 ### 2. Inspect the environment
 
@@ -204,10 +204,13 @@ Usually prefer the one-command fallback from the main analyzer:
   "$env:USERPROFILE\.codex\skills\video-understanding\scripts\analyze_video_with_openai.py" `
   "https://www.douyin.com/video/7623595912924777780" `
   --browser-record-fallback `
-  --browser-record-duration 60 `
+  --browser-record-duration auto `
+  --browser-record-fallback-duration 60 `
   --browser-record-auto-audio `
   --ocr --report-md "outputs\web-video-report.md"
 ```
+
+Use `--browser-record-headless never` when you specifically need visible desktop recording with possible system audio. Use `--browser-record-headless always` to fail instead of falling back to visible desktop recording.
 
 Manual recording is still available when you want to inspect or reuse the captured mp4:
 

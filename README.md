@@ -315,15 +315,19 @@ python scripts/analyze_video_with_openai.py "https://www.douyin.com/video/762359
 如果 `yt-dlp` 和 cookies 都失败，但浏览器里可以正常播放，可以使用“浏览器播放录制 fallback”：先把网页播放画面录成临时 mp4，再交给 skill 分析。
 
 推荐直接用主分析脚本的一条命令：它会先尝试直链 / `yt-dlp` / cookies 下载；只有下载失败时，才会打开浏览器录制播放画面。
+默认会先尝试后台录制，不弹出可见页面；后台录制失败时，才退回桌面可见录制。`--browser-record-duration auto` 会尽量读取网页里的视频时长，读不到时使用 `--browser-record-fallback-duration`。
 
 ```powershell
 python scripts/analyze_video_with_openai.py "https://www.douyin.com/video/7623595912924777780" `
   --browser-record-fallback `
-  --browser-record-duration 60 `
+  --browser-record-duration auto `
+  --browser-record-fallback-duration 60 `
   --browser-record-auto-audio `
   --ocr `
   --report-md "outputs\web-video-report.md"
 ```
+
+如果你必须录到系统声音，可以加 `--browser-record-headless never`，强制使用桌面可见录制；后台录制是截图合成 mp4，通常没有浏览器声音。
 
 ```powershell
 python scripts/record_webpage_playback.py "https://www.douyin.com/video/7623595912924777780" `

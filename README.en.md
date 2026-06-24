@@ -315,15 +315,19 @@ python scripts/analyze_video_with_openai.py "https://www.douyin.com/video/762359
 If `yt-dlp` and cookies both fail but the webpage plays normally in a browser, use the browser playback recording fallback: record the visible webpage playback into a temporary mp4, then analyze that mp4 with this skill.
 
 Prefer the one-command fallback in the main analyzer. It tries direct media download / `yt-dlp` / cookies first; only when download fails does it open the browser and record playback.
+By default it tries headless/background recording first without showing a visible page. If headless capture fails, it falls back to visible desktop recording. `--browser-record-duration auto` tries to use the webpage video duration; when unavailable, it uses `--browser-record-fallback-duration`.
 
 ```powershell
 python scripts/analyze_video_with_openai.py "https://www.douyin.com/video/7623595912924777780" `
   --browser-record-fallback `
-  --browser-record-duration 60 `
+  --browser-record-duration auto `
+  --browser-record-fallback-duration 60 `
   --browser-record-auto-audio `
   --ocr `
   --report-md "outputs\web-video-report.md"
 ```
+
+If system audio is mandatory, add `--browser-record-headless never` to force visible desktop recording. Headless capture is screenshot-based and usually does not include browser audio.
 
 ```powershell
 python scripts/record_webpage_playback.py "https://www.douyin.com/video/7623595912924777780" `
