@@ -236,6 +236,9 @@ Useful flags:
 - `--extract-speech-md <path>` to transcribe the blogger/speaker audio and write it as standalone Markdown
 - `--speech-only` to skip visual sampling, OCR, document extraction, and model synthesis when the goal is only speech-to-knowledge Markdown
 - `--speech-md-mode literal|knowledge` to choose whether speech Markdown is timestamped transcript (`literal`) or generated knowledge-note sections with timestamped excerpts (`knowledge`, default)
+- `--obsidian-frontmatter` to add Obsidian-friendly YAML frontmatter to generated Markdown outputs
+- `--copy-keyframes-dir <dir>` to persist sampled keyframes before the temporary extraction directory is removed
+- `--markdown-keyframes none|report|all` to embed copied keyframe image references in the report Markdown only or in all generated Markdown notes
 - `--api-timeout <seconds>` to raise the HTTP timeout for larger videos or slower endpoints
 - `--download-timeout <seconds>` to raise the timeout for direct URL or `yt-dlp` downloads
 - `--no-yt-dlp` to disable webpage-video download fallback and only accept local files or direct media URLs
@@ -261,6 +264,8 @@ Long-video coverage notes:
 - When `--extract-speech-md <path>` is enabled, the script writes a separate Markdown note from the audio transcript. Pair it with `--speech-only` when the user wants only the blogger/speaker's voice converted into knowledge notes.
 - Use the default `--speech-md-mode knowledge` when the user wants a usable knowledge-base note. It creates generated sections such as core ideas, process, tools, and cases, then keeps timestamped original speech excerpts for traceability. Use `--speech-md-mode literal` when the user wants the raw transcript arranged by time.
 - Speech Markdown generation can run without `OPENAI_API_KEY` in `--speech-only` mode because it uses the local faster-whisper fallback directly.
+- Use `--obsidian-frontmatter` when the Markdown output is intended to go directly into an Obsidian vault. It records source path or URL, duration, transcript source, sampling mode, and tags.
+- Use `--copy-keyframes-dir <dir> --markdown-keyframes report` when the user wants the report to include visual anchors. Use `--markdown-keyframes all` only when document and speech notes should also include the same keyframe references.
 - Long transcripts are summarized from the start, middle, and end of the video instead of only the first few segments, so late-video speech is not incorrectly treated as missing.
 - The report normalizes known video-specific aliases such as `OBZ硬支撑` to `Obsidian 知识库`, `OpenCore` to `OpenClaw`, and `Cloud Code` to `Claude Code` before synthesis and uncertainty cleanup.
 - The output JSON includes `sampling_strategy` so you can verify how frames were selected.

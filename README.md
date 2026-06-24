@@ -72,6 +72,7 @@ https://github.com/Dublin1231/Video-Understanding-Skill
 | 📄 文档提取 | 把视频里展示的文章、笔记、课件、文档转成 Markdown |
 | 🧭 时间线对齐 | 对齐画面、转写、OCR 和时间戳证据 |
 | 🛟 本地 fallback | 远程转写不可用时，可用本地 Whisper 继续产出转写 |
+| 🗂️ Obsidian 输出 | 可为 Markdown 加 frontmatter，并引用关键截图 |
 
 ---
 
@@ -192,6 +193,9 @@ python scripts/capability_probe.py
 python scripts/analyze_video_with_openai.py "C:\path\to\video.mp4" `
   --question "这个视频讲了什么？画面里发生了什么？" `
   --ocr `
+  --obsidian-frontmatter `
+  --copy-keyframes-dir "outputs\video-report-assets" `
+  --markdown-keyframes report `
   --report-md "outputs\video-report.md" `
   --report-json "outputs\video-report.json"
 ```
@@ -333,6 +337,20 @@ python scripts/analyze_video_with_openai.py "C:\path\to\video.mp4" `
 
 ---
 
+## Obsidian 与关键截图
+
+如果要把结果直接放进 Obsidian，可以加：
+
+```powershell
+--obsidian-frontmatter `
+--copy-keyframes-dir "outputs\video-assets" `
+--markdown-keyframes report
+```
+
+`--obsidian-frontmatter` 会写入来源、视频路径、时长、转写来源、采样模式和标签。`--markdown-keyframes report` 会在报告里引用抽样关键帧；如果希望口播笔记和文档笔记也引用同一批截图，可以改成 `--markdown-keyframes all`。
+
+---
+
 ## 文件结构
 
 ```text
@@ -370,8 +388,8 @@ video-understanding/
 - 更稳定的长视频章节采样
 - 更保守的文档提取和 OCR 清洗
 - 可选说话人分离摘要
-- Obsidian frontmatter 输出
-- 在 Markdown 中引用关键截图
+- 更丰富的 Obsidian frontmatter 模板
+- 更智能的关键截图筛选
 
 ---
 

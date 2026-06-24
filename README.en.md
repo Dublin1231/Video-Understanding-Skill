@@ -253,6 +253,18 @@ The script first tries direct media download. If the URL is a webpage, it automa
 
 If webpage download fails, give the link to an AI assistant and ask it to install/configure `yt-dlp`, or download the video locally before analysis.
 
+### Obsidian frontmatter and keyframes
+
+For notes that go directly into Obsidian, add:
+
+```powershell
+--obsidian-frontmatter `
+--copy-keyframes-dir "outputs\video-assets" `
+--markdown-keyframes report
+```
+
+`--obsidian-frontmatter` writes source, video path, duration, transcript source, sampling mode, and tags. `--markdown-keyframes report` references copied keyframes in the report only; use `--markdown-keyframes all` when speech and document notes should also include the same screenshots.
+
 For sites that require login state, such as short-video platforms, social platforms, course sites, or private content, the most reliable path is a Netscape-format `cookies.txt` file:
 
 ```powershell
@@ -434,8 +446,8 @@ video-understanding/
 - More stable chapter-aware sampling for long videos
 - More conservative document extraction and OCR cleanup
 - Optional speaker diarization summaries
-- Obsidian frontmatter output
-- Screenshot references in generated Markdown
+- Richer Obsidian frontmatter templates
+- Smarter keyframe selection
 
 ---
 

@@ -267,6 +267,22 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="Optional path to write a Markdown report",
     )
+    parser.add_argument(
+        "--obsidian-frontmatter",
+        action="store_true",
+        help="Add Obsidian-friendly YAML frontmatter to generated Markdown outputs.",
+    )
+    parser.add_argument(
+        "--copy-keyframes-dir",
+        default="",
+        help="Optional directory to copy sampled keyframes into for Markdown image references.",
+    )
+    parser.add_argument(
+        "--markdown-keyframes",
+        choices=["none", "report", "all"],
+        default="none",
+        help="Embed copied keyframe image references in Markdown outputs: none, report, or all.",
+    )
     return parser.parse_args()
 
 
@@ -278,6 +294,13 @@ def require_dependency(name: str) -> str:
     if not path:
         raise RuntimeError(f"Missing dependency: {name}")
     return path
+
+
+def run_command(cmd: list[str], **kwargs):
+    if kwargs.get("text") is True or kwargs.get("capture_output") is True:
+        kwargs.setdefault("encoding", "utf-8")
+        kwargs.setdefault("errors", "replace")
+    return subprocess.run(cmd, **kwargs)
 
 
 def extract_first_url(value: str) -> str:
@@ -452,7 +475,7 @@ def download_video_with_ytdlp(
         insert_at += 2
     if cookies_from_browser:
         cmd[insert_at:insert_at] = ["--cookies-from-browser", cookies_from_browser]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = run_command(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         error = (result.stderr or result.stdout or "").strip()
         raise RuntimeError(f"yt-dlp failed to download the video URL: {error}")
@@ -585,7 +608,7 @@ def download_video_with_douyin_downloader(
         str(output_dir),
         "--show-warnings",
     ]
-    result = subprocess.run(cmd, cwd=str(project_path), env=env, capture_output=True, text=True)
+    result = run_command(cmd, cwd=str(project_path), env=env, capture_output=True, text=True)
     if result.returncode != 0:
         error = (result.stderr or result.stdout or "").strip()
         raise RuntimeError(f"douyin-downloader failed: {error}")
@@ -751,7 +774,7 @@ def ffprobe_duration(video_path: Path) -> float:
         "default=noprint_wrappers=1:nokey=1",
         str(video_path),
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    result = run_command(cmd, capture_output=True, text=True, check=True)
     return float(result.stdout.strip())
 
 
@@ -769,7 +792,7 @@ def ffprobe_has_audio(video_path: Path) -> bool:
         "csv=p=0",
         str(video_path),
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    result = run_command(cmd, capture_output=True, text=True, check=True)
     return bool(result.stdout.strip())
 
 
@@ -818,7 +841,7 @@ def detect_scene_timestamps(
         "null",
         "-",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = run_command(cmd, capture_output=True, text=True)
     output = (result.stderr or "") + "\n" + (result.stdout or "")
     timestamps = []
     for match in re.finditer(r"pts_time:([0-9]+(?:\.[0-9]+)?)", output):
@@ -951,7 +974,7 @@ def extract_single_frame(video_path: Path, timestamp: float, output_path: Path) 
         "2",
         str(output_path),
     ]
-    subprocess.run(cmd, capture_output=True, text=True, check=True)
+    run_command(cmd, capture_output=True, text=True, check=True)
     return output_path.read_bytes()
 
 
@@ -2695,7 +2718,7 @@ def extract_audio(video_path: Path, temp_dir: Path) -> Path:
         "64k",
         str(audio_path),
     ]
-    subprocess.run(cmd, capture_output=True, text=True, check=True)
+    run_command(cmd, capture_output=True, text=True, check=True)
     return audio_path
 
 
@@ -3240,7 +3263,99 @@ def clean_parsed_output(parsed_output: dict, transcript: dict | None = None) -> 
     return cleaned
 
 
-def build_markdown_report(result: dict) -> str:
+def yaml_escape(value: object) -> str:
+    text = str(value if value is not None else "")
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def markdown_has_frontmatter(markdown: str) -> bool:
+    return (markdown or "").lstrip("\ufeff").startswith("---\n")
+
+
+def build_obsidian_frontmatter(result: dict, note_type: str) -> str:
+    source = result.get("source_url") or result.get("video_path") or ""
+    tags = ["video-understanding", note_type.replace("_", "-")]
+    if result.get("speech_only"):
+        tags.append("speech")
+    if result.get("doc_only"):
+        tags.append("document")
+    if result.get("ocr_used"):
+        tags.append("ocr")
+    lines = [
+        "---",
+        f'title: {yaml_escape(note_type.replace("_", " ").title())}',
+        f'type: {yaml_escape(note_type)}',
+        f'source: {yaml_escape(source)}',
+        f'video_path: {yaml_escape(result.get("video_path", ""))}',
+        f'duration_seconds: {float(result.get("duration_seconds") or 0):.3f}',
+        f'transcript_source: {yaml_escape(result.get("transcript_source", ""))}',
+        f'sampling_mode: {yaml_escape(result.get("sampling_mode", ""))}',
+        "tags:",
+    ]
+    lines.extend(f"  - {tag}" for tag in tags)
+    lines.extend(["---", ""])
+    return "\n".join(lines)
+
+
+def add_obsidian_frontmatter(markdown: str, result: dict, note_type: str) -> str:
+    if markdown_has_frontmatter(markdown):
+        return markdown
+    return build_obsidian_frontmatter(result, note_type) + (markdown or "").lstrip("\ufeff")
+
+
+def copy_keyframes(frames: list[dict], keyframes_dir: Path) -> list[dict]:
+    keyframes_dir.mkdir(parents=True, exist_ok=True)
+    copied = []
+    for frame in frames:
+        source = Path(frame["path"])
+        timestamp = float(frame.get("timestamp_seconds") or 0)
+        filename = f"frame-{int(frame.get('index', len(copied))):03d}-{timestamp:.2f}s.jpg"
+        filename = filename.replace(":", "-")
+        dest = keyframes_dir / filename
+        shutil.copy2(source, dest)
+        copied.append(
+            {
+                "index": frame.get("index"),
+                "timestamp_seconds": timestamp,
+                "path": str(dest),
+                "filename": filename,
+            }
+        )
+    return copied
+
+
+def relative_markdown_path(target: str, markdown_path: Path | None) -> str:
+    target_path = Path(target)
+    if markdown_path is None:
+        return target_path.as_posix()
+    try:
+        return os.path.relpath(target_path, markdown_path.parent).replace("\\", "/")
+    except ValueError:
+        return target_path.as_posix()
+
+
+def build_keyframe_markdown(result: dict, markdown_path: Path | None = None, limit: int = 12) -> str:
+    frames = result.get("keyframes") or []
+    if not frames:
+        return ""
+    lines = ["## 关键截图", ""]
+    for frame in frames[:limit]:
+        rel = relative_markdown_path(frame["path"], markdown_path)
+        ts = float(frame.get("timestamp_seconds") or 0)
+        lines.extend([f"![Frame {frame.get('index')} @ {ts:.2f}s]({rel})", ""])
+    return "\n".join(lines).strip()
+
+
+def append_keyframes_to_markdown(markdown: str, result: dict, markdown_path: Path | None = None) -> str:
+    keyframe_md = build_keyframe_markdown(result, markdown_path=markdown_path)
+    if not keyframe_md:
+        return markdown
+    if "## 关键截图" in markdown:
+        return markdown
+    return (markdown.rstrip() + "\n\n" + keyframe_md + "\n").lstrip("\ufeff")
+
+
+def build_markdown_report(result: dict, markdown_path: Path | None = None, include_keyframes: bool = False) -> str:
     sections = result.get("parsed_output") or {}
     lines = [
         "# \u89c6\u9891\u7406\u89e3\u62a5\u544a",
@@ -3283,7 +3398,10 @@ def build_markdown_report(result: dict) -> str:
                 f"- \u5e27 {item['index']} @ {item['timestamp_seconds']:.2f}s: "
                 f"[{seg['start']:.2f}-{seg['end']:.2f}s] {speaker_prefix}{seg['text']}"
             )
-    return "\n".join(lines)
+    markdown = "\n".join(lines)
+    if include_keyframes:
+        markdown = append_keyframes_to_markdown(markdown, result, markdown_path=markdown_path)
+    return markdown
 
 
 def build_prompt(
@@ -3609,6 +3727,7 @@ def analyze(
     extract_speech_md: str,
     speech_only: bool,
     speech_md_mode: str,
+    copy_keyframes_dir: str,
 ) -> dict:
     if not os.environ.get("OPENAI_API_KEY") and not doc_only and not speech_only:
         raise RuntimeError("OPENAI_API_KEY is not set.")
@@ -3828,6 +3947,8 @@ def analyze(
             transcript=transcript,
         )
 
+        keyframes = copy_keyframes(frames, Path(copy_keyframes_dir).expanduser().resolve()) if copy_keyframes_dir and frames else []
+
         return {
             "model": model,
             "base_url": base_url or None,
@@ -3880,6 +4001,7 @@ def analyze(
             "ocr_results": ocr_results,
             "document_markdown": document_markdown,
             "speech_markdown": speech_markdown,
+            "keyframes": keyframes,
             "frames": [
                 {
                     "index": frame["index"],
@@ -3942,6 +4064,7 @@ def main() -> int:
             extract_speech_md=args.extract_speech_md,
             speech_only=args.speech_only,
             speech_md_mode=args.speech_md_mode,
+            copy_keyframes_dir=args.copy_keyframes_dir,
         )
         if source_url:
             result["source_url"] = source_url
@@ -3954,7 +4077,14 @@ def main() -> int:
         if args.report_md:
             report_md_path = Path(args.report_md).expanduser().resolve()
             report_md_path.parent.mkdir(parents=True, exist_ok=True)
-            report_md_path.write_text(build_markdown_report(result), encoding="utf-8-sig")
+            report_markdown = build_markdown_report(
+                result,
+                markdown_path=report_md_path,
+                include_keyframes=args.markdown_keyframes in {"report", "all"},
+            )
+            if args.obsidian_frontmatter:
+                report_markdown = add_obsidian_frontmatter(report_markdown, result, "video_report")
+            report_md_path.write_text(report_markdown, encoding="utf-8-sig")
 
         if args.extract_doc_md:
             doc_md_path = Path(args.extract_doc_md).expanduser().resolve()
@@ -3962,6 +4092,10 @@ def main() -> int:
             document_markdown = (result.get("document_markdown") or {}).get("markdown", "")
             if not document_markdown:
                 document_markdown = "# 文档内容\n\n未从采样帧中提取到稳定的文档正文。"
+            if args.markdown_keyframes == "all":
+                document_markdown = append_keyframes_to_markdown(document_markdown, result, markdown_path=doc_md_path)
+            if args.obsidian_frontmatter:
+                document_markdown = add_obsidian_frontmatter(document_markdown, result, "video_document")
             doc_md_path.write_text(document_markdown, encoding="utf-8-sig")
 
         if args.extract_speech_md:
@@ -3970,6 +4104,10 @@ def main() -> int:
             speech_markdown = (result.get("speech_markdown") or {}).get("markdown", "")
             if not speech_markdown:
                 speech_markdown = "# 博主口播整理\n\n未从视频音轨中提取到稳定的口播转写。"
+            if args.markdown_keyframes == "all":
+                speech_markdown = append_keyframes_to_markdown(speech_markdown, result, markdown_path=speech_md_path)
+            if args.obsidian_frontmatter:
+                speech_markdown = add_obsidian_frontmatter(speech_markdown, result, "video_speech")
             speech_md_path.write_text(speech_markdown, encoding="utf-8-sig")
 
         if args.json:
