@@ -282,6 +282,8 @@ def require_dependency(name: str) -> str:
 
 def extract_first_url(value: str) -> str:
     match = re.search(r"https?://[^\s，。！？；、）)>\]\"']+", value or "")
+    if not match:
+        return ""
     return match.group(0).rstrip(".,;:!?，。！？；、")
 
 
