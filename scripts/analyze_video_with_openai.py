@@ -101,6 +101,33 @@ def parse_args() -> argparse.Namespace:
         help="When a webpage video download needs cookies, automatically try common local browsers.",
     )
     parser.add_argument(
+        "--browser-record-fallback",
+        action="store_true",
+        help="If URL download/yt-dlp fails, open the webpage and record browser playback to a temporary mp4.",
+    )
+    parser.add_argument(
+        "--browser-record-duration",
+        type=float,
+        default=60.0,
+        help="Seconds to record when --browser-record-fallback is used.",
+    )
+    parser.add_argument(
+        "--browser-record-warmup",
+        type=float,
+        default=8.0,
+        help="Seconds to wait after opening the webpage before browser recording starts.",
+    )
+    parser.add_argument(
+        "--browser-record-auto-audio",
+        action="store_true",
+        help="Try to auto-select a system playback/loopback audio device during browser recording.",
+    )
+    parser.add_argument(
+        "--browser-record-audio-required",
+        action="store_true",
+        help="Fail browser recording if no system playback/loopback audio device is available.",
+    )
+    parser.add_argument(
         "--transcribe-model",
         default=DEFAULT_TRANSCRIBE_MODEL,
         help=f"Audio transcription model to use when audio is present (default: {DEFAULT_TRANSCRIBE_MODEL})",
@@ -440,6 +467,42 @@ def download_video_with_ytdlp(
     return video_path
 
 
+def record_webpage_playback(
+    url: str,
+    temp_dir: Path,
+    duration: float,
+    warmup: float,
+    auto_audio: bool = False,
+    audio_required: bool = False,
+) -> Path:
+    recorder = SKILL_DIR / "scripts" / "record_webpage_playback.py"
+    if not recorder.exists():
+        raise RuntimeError(f"Browser recording fallback script not found: {recorder}")
+    output_path = temp_dir / "browser-playback-capture.mp4"
+    cmd = [
+        sys.executable,
+        str(recorder),
+        url,
+        "--duration",
+        str(max(3.0, duration)),
+        "--warmup",
+        str(max(0.0, warmup)),
+        "--output",
+        str(output_path),
+    ]
+    if auto_audio:
+        cmd.append("--auto-audio")
+    if audio_required:
+        cmd.append("--audio-required")
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        error = (result.stderr or result.stdout or "").strip()
+        raise RuntimeError(f"Browser playback recording failed: {error}")
+    if not output_path.exists() or output_path.stat().st_size == 0:
+        raise RuntimeError("Browser playback recording completed but no video file was produced.")
+    return output_path
+
+
 def candidate_cookie_browsers(cookies_from_browser: str, auto_cookies: bool) -> list[str]:
     if cookies_from_browser:
         if cookies_from_browser.lower() == "auto":
@@ -458,6 +521,11 @@ def resolve_video_source(
     cookies: str = "",
     cookies_from_browser: str = "",
     auto_cookies: bool = False,
+    browser_record_fallback: bool = False,
+    browser_record_duration: float = 60.0,
+    browser_record_warmup: float = 8.0,
+    browser_record_auto_audio: bool = False,
+    browser_record_audio_required: bool = False,
 ) -> tuple[Path, str | None]:
     source_input = normalize_source_input(url_or_path)
     if not is_url(source_input):
@@ -505,20 +573,46 @@ def resolve_video_source(
                     errors.append(f"{browser}: {exc}")
         joined_errors = " | ".join(errors)
         help_text = build_download_failure_help(source_input, normalized_url, f"{direct_error} {joined_errors}")
-        raise RuntimeError(
+        download_error = (
             "Unable to download video URL.\n"
             f"Direct download error: {direct_error}\n"
             f"yt-dlp error: {joined_errors}\n"
             "Recovery suggestions:\n"
             f"{help_text}"
         )
+        if browser_record_fallback:
+            try:
+                return record_webpage_playback(
+                    normalized_url,
+                    temp_dir,
+                    duration=browser_record_duration,
+                    warmup=browser_record_warmup,
+                    auto_audio=browser_record_auto_audio,
+                    audio_required=browser_record_audio_required,
+                ), source_input
+            except Exception as exc:
+                raise RuntimeError(f"{download_error}\nBrowser recording fallback error: {exc}") from exc
+        raise RuntimeError(download_error)
     help_text = build_download_failure_help(source_input, normalized_url, str(direct_error))
-    raise RuntimeError(
+    download_error = (
         "Unable to download direct video URL.\n"
         f"Direct download error: {direct_error}\n"
         "Recovery suggestions:\n"
         f"{help_text}"
     )
+    if browser_record_fallback:
+        try:
+            return record_webpage_playback(
+                normalized_url,
+                temp_dir,
+                duration=browser_record_duration,
+                warmup=browser_record_warmup,
+                auto_audio=browser_record_auto_audio,
+                audio_required=browser_record_audio_required,
+            ), source_input
+        except Exception as exc:
+            raise RuntimeError(f"{download_error}\nBrowser recording fallback error: {exc}") from exc
+    raise RuntimeError(download_error)
 
 
 def require_openai():
@@ -595,7 +689,9 @@ def ffprobe_has_audio(video_path: Path) -> bool:
 
 
 def epsilon_for_duration(duration: float) -> float:
-    return 0.05 if duration > 0.1 else max(duration / 10, 0.001)
+    if duration <= 0:
+        return 0.001
+    return min(max(0.5, duration * 0.05), max(duration / 2, 0.001))
 
 
 def dedupe_timestamps(timestamps: list[float]) -> list[float]:
@@ -3725,6 +3821,11 @@ def main() -> int:
             cookies=args.cookies,
             cookies_from_browser=args.cookies_from_browser,
             auto_cookies=args.auto_cookies,
+            browser_record_fallback=args.browser_record_fallback,
+            browser_record_duration=args.browser_record_duration,
+            browser_record_warmup=args.browser_record_warmup,
+            browser_record_auto_audio=args.browser_record_auto_audio,
+            browser_record_audio_required=args.browser_record_audio_required,
         )
 
         result = analyze(

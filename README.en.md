@@ -292,6 +292,17 @@ Do not commit `cookies.txt` to GitHub or share it publicly; it acts like a tempo
 
 If `yt-dlp` and cookies both fail but the webpage plays normally in a browser, use the browser playback recording fallback: record the visible webpage playback into a temporary mp4, then analyze that mp4 with this skill.
 
+Prefer the one-command fallback in the main analyzer. It tries direct media download / `yt-dlp` / cookies first; only when download fails does it open the browser and record playback.
+
+```powershell
+python scripts/analyze_video_with_openai.py "https://www.douyin.com/video/7623595912924777780" `
+  --browser-record-fallback `
+  --browser-record-duration 60 `
+  --browser-record-auto-audio `
+  --ocr `
+  --report-md "outputs\web-video-report.md"
+```
+
 ```powershell
 python scripts/record_webpage_playback.py "https://www.douyin.com/video/7623595912924777780" `
   --duration 60 `

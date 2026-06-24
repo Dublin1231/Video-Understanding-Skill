@@ -36,7 +36,7 @@ Tell the user these choices when their goal is unclear:
 | Extract an on-screen document or article | `--doc-only --doc-md-mode literal --extract-doc-md <path>` |
 | Capture every screen/page change | `--sampling-mode all-changes --scene-detection --screen-layout-filter` |
 | Analyze a screen recording with chapters | add `--title-ocr-filter --chapter-nav-filter --same-chapter-dedupe-filter` |
-| Webpage video cannot be downloaded | record browser playback with `scripts/record_webpage_playback.py`, then analyze the captured mp4 |
+| Webpage video may be protected | add `--browser-record-fallback` so the script tries direct/yt-dlp first, then records browser playback if download fails |
 
 ## Quick Start
 
@@ -65,7 +65,7 @@ Tell the user these choices when their goal is unclear:
 
 Accept local files, direct media URLs, and webpage video links. For URLs, the script first attempts direct media download, then falls back to `yt-dlp` when the URL is a webpage and `yt-dlp` is installed.
 
-If a webpage cannot be downloaded because of login, permissions, DRM, or site restrictions, explain the blocker and try the browser playback recording fallback when appropriate. This fallback records what is visible on the desktop into an mp4, then feeds that mp4 into the normal analysis pipeline. It can reliably capture visuals; audio capture requires an available system loopback or virtual audio device.
+If a webpage cannot be downloaded because of login, permissions, DRM, or site restrictions, use `--browser-record-fallback` when appropriate. The main analyzer will try direct download and `yt-dlp` first; only if those fail will it open/record browser playback into an mp4 and feed that mp4 into the normal analysis pipeline. It can reliably capture visuals; audio capture requires an available system loopback or virtual audio device.
 
 ### 2. Inspect the environment
 
@@ -195,7 +195,19 @@ Extract representative frames, optionally extract audio, and call the OpenAI Res
 
 Open or record a webpage video from the desktop when direct download and `yt-dlp` fail.
 
-Example:
+Usually prefer the one-command fallback from the main analyzer:
+
+```powershell
+& 'C:\Users\35647\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' `
+  "$env:USERPROFILE\.codex\skills\video-understanding\scripts\analyze_video_with_openai.py" `
+  "https://www.douyin.com/video/7623595912924777780" `
+  --browser-record-fallback `
+  --browser-record-duration 60 `
+  --browser-record-auto-audio `
+  --ocr --report-md "outputs\web-video-report.md"
+```
+
+Manual recording is still available when you want to inspect or reuse the captured mp4:
 
 ```powershell
 & 'C:\Users\35647\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' `
