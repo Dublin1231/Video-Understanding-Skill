@@ -295,6 +295,7 @@ If `yt-dlp` and cookies both fail but the webpage plays normally in a browser, u
 ```powershell
 python scripts/record_webpage_playback.py "https://www.douyin.com/video/7623595912924777780" `
   --duration 60 `
+  --auto-audio `
   --output "outputs\browser-capture.mp4"
 
 python scripts/analyze_video_with_openai.py "outputs\browser-capture.mp4" `
@@ -316,6 +317,8 @@ python scripts/record_webpage_playback.py "https://www.douyin.com/video/76235959
   --audio-device "Your audio device name" `
   --output "outputs\browser-capture.mp4"
 ```
+
+You can also use `--auto-audio` to let the script try to select a system playback/virtual audio device. It intentionally avoids plain microphones because microphones usually capture room noise, not browser audio. Add `--audio-required` when audio is mandatory and the command should fail instead of silently recording visuals only.
 
 ---
 

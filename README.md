@@ -295,6 +295,7 @@ python scripts/analyze_video_with_openai.py "https://v.douyin.com/xxxx/" `
 ```powershell
 python scripts/record_webpage_playback.py "https://www.douyin.com/video/7623595912924777780" `
   --duration 60 `
+  --auto-audio `
   --output "outputs\browser-capture.mp4"
 
 python scripts/analyze_video_with_openai.py "outputs\browser-capture.mp4" `
@@ -316,6 +317,8 @@ python scripts/record_webpage_playback.py "https://www.douyin.com/video/76235959
   --audio-device "你的音频设备名称" `
   --output "outputs\browser-capture.mp4"
 ```
+
+也可以用 `--auto-audio` 自动尝试选择系统回放/虚拟音频设备。脚本会刻意避开普通麦克风，因为麦克风通常录到的是环境声，不是浏览器声音。如果这次任务必须带声音，可以加 `--audio-required`，找不到可用音频设备时直接失败并提示。
 
 ---
 
