@@ -290,6 +290,28 @@ If you see `Failed to decrypt with DPAPI`, the link is not the problem. Chrome/E
 
 Do not commit `cookies.txt` to GitHub or share it publicly; it acts like a temporary login credential.
 
+### Export cookies.txt with a browser extension
+
+If you use a browser extension such as **Get cookies.txt LOCALLY**, follow this flow:
+
+1. Open the target video page in your browser and confirm the video can play.
+2. Click the **Get cookies.txt LOCALLY** extension icon.
+3. Confirm the popup title looks like `Get cookies.txt for https://www.douyin.com/...`, so you are exporting the target site.
+4. Set `Export Format` to **Netscape**.
+5. Click the blue **Export** button in the upper-left area to export only the current site's cookies.
+6. Do not click **Export All Cookies** because it exports cookies for every site.
+7. Save the file somewhere like `C:\Users\YourName\Downloads\www.douyin.com_cookies.txt`.
+
+Then pass it to the skill:
+
+```powershell
+python scripts/analyze_video_with_openai.py "https://www.douyin.com/video/7623595912924777780" `
+  --cookies "C:\Users\YourName\Downloads\www.douyin.com_cookies.txt" `
+  --browser-record-fallback `
+  --ocr `
+  --report-md "outputs\web-video-report.md"
+```
+
 If `yt-dlp` and cookies both fail but the webpage plays normally in a browser, use the browser playback recording fallback: record the visible webpage playback into a temporary mp4, then analyze that mp4 with this skill.
 
 Prefer the one-command fallback in the main analyzer. It tries direct media download / `yt-dlp` / cookies first; only when download fails does it open the browser and record playback.

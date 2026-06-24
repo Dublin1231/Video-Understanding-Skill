@@ -24,6 +24,8 @@ Video URLs can be passed to `scripts/analyze_video_with_openai.py` directly. The
 
 For sites that require login or fresh cookies, prefer a Netscape-format `--cookies <cookies.txt>` file. `--cookies-from-browser <browser>` and `--cookies-from-browser auto` are convenience fallbacks, but on newer Windows Chrome/Edge versions they may fail with DPAPI / App-Bound Encryption errors. If that happens, ask the user to export `cookies.txt`, try Firefox login state, or provide a local downloaded video.
 
+When guiding a beginner through **Get cookies.txt LOCALLY**, tell them to open the target video page, confirm playback, set `Export Format` to `Netscape`, click the blue `Export` button for the current site, and avoid `Export All Cookies`.
+
 ## Choose The Right Mode
 
 Tell the user these choices when their goal is unclear:

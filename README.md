@@ -290,6 +290,28 @@ python scripts/analyze_video_with_openai.py "https://v.douyin.com/xxxx/" `
 
 不要把 `cookies.txt` 上传到 GitHub，也不要发给陌生人；它等同于一段临时登录凭据。
 
+### 用浏览器插件导出 cookies.txt
+
+如果你使用的是 **Get cookies.txt LOCALLY** 这类浏览器扩展，可以这样做：
+
+1. 先在浏览器里打开目标视频页面，并确认视频能正常播放。
+2. 点击浏览器右上角的 **Get cookies.txt LOCALLY** 插件图标。
+3. 确认页面标题类似 `Get cookies.txt for https://www.douyin.com/...`，说明当前导出的是目标站点。
+4. `Export Format` 选择 **Netscape**。
+5. 点击左上角蓝色 **Export**，只导出当前站点 cookies。
+6. 不要点击 **Export All Cookies**，它会导出所有网站 cookies，范围太大。
+7. 保存成例如 `C:\Users\你的用户名\Downloads\www.douyin.com_cookies.txt`。
+
+然后这样传给 skill：
+
+```powershell
+python scripts/analyze_video_with_openai.py "https://www.douyin.com/video/7623595912924777780" `
+  --cookies "C:\Users\你的用户名\Downloads\www.douyin.com_cookies.txt" `
+  --browser-record-fallback `
+  --ocr `
+  --report-md "outputs\web-video-report.md"
+```
+
 如果 `yt-dlp` 和 cookies 都失败，但浏览器里可以正常播放，可以使用“浏览器播放录制 fallback”：先把网页播放画面录成临时 mp4，再交给 skill 分析。
 
 推荐直接用主分析脚本的一条命令：它会先尝试直链 / `yt-dlp` / cookies 下载；只有下载失败时，才会打开浏览器录制播放画面。
