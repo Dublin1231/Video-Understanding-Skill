@@ -1,6 +1,6 @@
 <div align="center">
 
-<div style="font-size:72px; line-height:1; margin-bottom:8px;">🎬</div>
+<img src="assets/video-understanding-icon.svg" alt="Video Understanding" width="160" />
 
 # Video Understanding Skill
 

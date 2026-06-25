@@ -1,0 +1,15 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Video Understanding">
+  <rect width="256" height="256" rx="48" fill="white"/>
+  <rect x="42" y="78" width="172" height="112" rx="22" fill="#111827"/>
+  <path d="M42 92H214V118H42V92Z" fill="#374151"/>
+  <path d="M54 78L78 118H54L42 100V78H54Z" fill="#F3F4F6"/>
+  <path d="M82 78L106 118H86L62 78H82Z" fill="#F9FAFB"/>
+  <path d="M110 78L134 118H114L90 78H110Z" fill="#F3F4F6"/>
+  <path d="M138 78L162 118H142L118 78H138Z" fill="#F9FAFB"/>
+  <path d="M166 78L190 118H170L146 78H166Z" fill="#F3F4F6"/>
+  <path d="M194 78L214 110V118H198L174 78H194Z" fill="#F9FAFB"/>
+  <rect x="66" y="132" width="124" height="14" rx="7" fill="#E5E7EB" opacity="0.9"/>
+  <rect x="66" y="156" width="82" height="14" rx="7" fill="#9CA3AF" opacity="0.85"/>
+  <circle cx="180" cy="154" r="22" fill="#F59E0B"/>
+  <path d="M171 154L186 145V163L171 154Z" fill="white"/>
+</svg>
