@@ -1,6 +1,8 @@
 <div align="center">
 
-# 🎬 Video Understanding Skill
+<div style="font-size:72px; line-height:1; margin-bottom:8px;">🎬</div>
+
+# Video Understanding Skill
 
 让 Codex 真正“看懂 + 听懂”本地视频、视频链接和网页视频，并整理成可复用的知识 Markdown。  
 It understands videos through transcript, OCR, visual-change sampling, document extraction, and knowledge-note output.

@@ -1,6 +1,8 @@
 <div align="center">
 
-# 🎬 Video Understanding Skill
+<div style="font-size:72px; line-height:1; margin-bottom:8px;">🎬</div>
+
+# Video Understanding Skill
 
 Understand local videos, direct video URLs, and webpage video links, then turn them into reusable knowledge Markdown.
 
