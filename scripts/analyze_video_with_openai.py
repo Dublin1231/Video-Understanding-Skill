@@ -1,6 +1,7 @@
 ﻿#!/usr/bin/env python3
 import argparse
 import base64
+import datetime
 import difflib
 import json
 import math
@@ -39,6 +40,9 @@ LAYOUT_GRID_WIDTH = 24
 LAYOUT_GRID_HEIGHT = 14
 DEFAULT_OCR_LANGUAGE = "chi_sim+eng"
 DEFAULT_OCR_MIN_CONFIDENCE = 28.0
+DEFAULT_DOCUMENT_FRAME_SCORE_THRESHOLD = 0.48
+DEFAULT_DOCUMENT_FRAME_LIMIT = 8
+DEFAULT_KEYFRAME_MARKDOWN_LIMIT = 8
 SKILL_DIR = Path(__file__).resolve().parents[1]
 VENDOR_DIR = SKILL_DIR / "vendor"
 FFMPEG_ROOT = SKILL_DIR / "tools" / "ffmpeg"
@@ -878,6 +882,50 @@ def build_coverage_windows(duration: float, frame_budget: int) -> list[dict]:
     return windows
 
 
+def fill_coverage_gaps(
+    selected: list[float],
+    duration: float,
+    frame_budget: int,
+    candidate_timestamps: list[float] | None = None,
+) -> list[float]:
+    if duration <= 0:
+        return [0.0]
+    epsilon = epsilon_for_duration(duration)
+    safe_end = max(duration - epsilon, 0.0)
+    candidates = sorted(dedupe_timestamps(candidate_timestamps or []))
+    current = dedupe_timestamps(sorted(selected))
+    if not current:
+        current = [0.0]
+
+    while len(current) < frame_budget:
+        anchors = [0.0, *current, safe_end]
+        anchors = dedupe_timestamps(sorted(anchors))
+        widest_gap = None
+        for left, right in zip(anchors, anchors[1:]):
+            if right - left <= 0.001:
+                continue
+            gap_size = right - left
+            if widest_gap is None or gap_size > widest_gap[0]:
+                widest_gap = (gap_size, left, right)
+        if widest_gap is None:
+            break
+
+        _, left, right = widest_gap
+        center = (left + right) / 2.0
+        in_gap = [ts for ts in candidates if left <= ts <= right]
+        if in_gap:
+            choice = min(in_gap, key=lambda ts: abs(ts - center))
+        else:
+            choice = center
+        rounded_choice = round(min(max(choice, 0.0), safe_end), 3)
+        if any(abs(rounded_choice - existing) <= 0.001 for existing in current):
+            break
+        current.append(rounded_choice)
+        current = dedupe_timestamps(sorted(current))
+
+    return current[:frame_budget] or [0.0]
+
+
 def select_segment_coverage_timestamps(
     duration: float,
     frame_budget: int,
@@ -900,24 +948,8 @@ def select_segment_coverage_timestamps(
         else:
             choice = center
         selected.append(round(choice, 3))
-
-    deduped = []
-    seen = set()
-    for ts in selected:
-        key = round(ts, 3)
-        if key not in seen:
-            seen.add(key)
-            deduped.append(ts)
-
-    if len(deduped) < frame_budget:
-        for window in windows:
-            key = round(window["center"], 3)
-            if key not in seen:
-                seen.add(key)
-                deduped.append(window["center"])
-            if len(deduped) >= frame_budget:
-                break
-
+    deduped = dedupe_timestamps(selected)
+    deduped = fill_coverage_gaps(deduped, duration, frame_budget, candidate_timestamps=candidates)
     return deduped[:frame_budget] or [0.0]
 
 
@@ -2369,6 +2401,52 @@ def document_frame_score(lines: list[str]) -> float:
     return max(0.0, min(1.0, score))
 
 
+def estimate_document_density(lines: list[str]) -> float:
+    if not lines:
+        return 0.0
+    text = "\n".join(lines)
+    useful_chars = len(re.findall(r"[\u4e00-\u9fffA-Za-z0-9]", text))
+    avg_line_chars = useful_chars / max(1, len(lines))
+    long_lines = sum(1 for line in lines if len(re.findall(r"[\u4e00-\u9fffA-Za-z0-9]", line)) >= 12)
+    score = 0.0
+    score += min(avg_line_chars / 18.0, 1.0) * 0.5
+    score += min(long_lines / 5.0, 1.0) * 0.5
+    return max(0.0, min(1.0, score))
+
+
+def is_document_frame_candidate(lines: list[str], score: float) -> bool:
+    if not lines:
+        return False
+    joined = "\n".join(lines)
+    short_lines = sum(1 for line in lines if len(re.findall(r"[\u4e00-\u9fffA-Za-z0-9]", line)) < 8)
+    ui_heavy_terms = sum(
+        1
+        for term in [
+            "ChatGPT",
+            "Homepage",
+            "课程",
+            "评论区",
+            "点赞",
+            "粉丝",
+            "收藏",
+            "转发",
+            "文件列表",
+            "播放",
+        ]
+        if term.lower() in joined.lower()
+    )
+    density = estimate_document_density(lines)
+    if score < DEFAULT_DOCUMENT_FRAME_SCORE_THRESHOLD:
+        return False
+    if density < 0.34:
+        return False
+    if short_lines >= max(5, len(lines) * 0.7):
+        return False
+    if ui_heavy_terms >= 3 and density < 0.55:
+        return False
+    return True
+
+
 def looks_like_document_line(text: str) -> bool:
     line = normalize_ocr_text(correct_common_ocr_terms(text))
     if not line:
@@ -2492,6 +2570,47 @@ def merge_document_lines(frame_line_sets: list[dict]) -> list[str]:
                 continue
             merged.append(line)
     return merged
+
+
+def document_frames_are_similar(frame_a: dict, frame_b: dict) -> bool:
+    lines_a = frame_a.get("lines") or []
+    lines_b = frame_b.get("lines") or []
+    if not lines_a or not lines_b:
+        return False
+    text_a = "\n".join(lines_a[:12])
+    text_b = "\n".join(lines_b[:12])
+    norm_a = re.sub(r"\s+", "", normalize_title_text(text_a))
+    norm_b = re.sub(r"\s+", "", normalize_title_text(text_b))
+    if not norm_a or not norm_b:
+        return False
+    overlap = difflib.SequenceMatcher(None, norm_a, norm_b).ratio()
+    if overlap >= 0.9:
+        return True
+    if min(len(norm_a), len(norm_b)) >= 30 and (norm_a in norm_b or norm_b in norm_a):
+        return True
+    return False
+
+
+def select_document_frames(frame_line_sets: list[dict], limit: int = DEFAULT_DOCUMENT_FRAME_LIMIT) -> list[dict]:
+    if not frame_line_sets:
+        return []
+    ranked = sorted(
+        frame_line_sets,
+        key=lambda item: (
+            float(item.get("score") or 0),
+            estimate_document_density(item.get("lines") or []),
+            len(item.get("lines") or []),
+        ),
+        reverse=True,
+    )
+    chosen = []
+    for item in ranked:
+        if any(document_frames_are_similar(item, existing) for existing in chosen):
+            continue
+        chosen.append(item)
+        if len(chosen) >= limit:
+            break
+    return sorted(chosen, key=lambda item: float(item.get("timestamp_seconds") or 0))
 
 
 def normalize_document_spacing(text: str) -> str:
@@ -2676,7 +2795,7 @@ def extract_document_markdown(frames: list[dict], mode: str = "literal") -> dict
             lines = image_to_document_lines(pytesseract, image.convert("RGB"), ocr_language)
         if lines:
             score = document_frame_score(lines)
-            if score < 0.42:
+            if not is_document_frame_candidate(lines, score):
                 continue
             frame_line_sets.append(
                 {
@@ -2686,17 +2805,19 @@ def extract_document_markdown(frames: list[dict], mode: str = "literal") -> dict
                     "lines": lines,
                 }
             )
-    merged_lines = merge_document_lines(frame_line_sets)
+    selected_frame_sets = select_document_frames(frame_line_sets)
+    merged_lines = merge_document_lines(selected_frame_sets)
     if mode == "polished":
         markdown = build_structured_document_markdown(merged_lines).strip()
     else:
-        markdown = build_literal_document_markdown(frame_line_sets).strip()
+        markdown = build_literal_document_markdown(selected_frame_sets).strip()
     return {
         "language": ocr_language,
         "mode": mode,
-        "frame_count": len(frame_line_sets),
+        "frame_count": len(selected_frame_sets),
+        "candidate_frame_count": len(frame_line_sets),
         "line_count": len(merged_lines),
-        "frames": frame_line_sets,
+        "frames": selected_frame_sets,
         "markdown": markdown,
     }
 
@@ -3044,6 +3165,54 @@ def build_generated_speech_points(chunks: list[dict]) -> dict:
     }
 
 
+def build_speaker_summaries(segments: list[dict]) -> list[dict]:
+    by_speaker = {}
+    for seg in segments:
+        speaker = (seg.get("speaker") or "").strip()
+        text = normalize_known_video_terms((seg.get("text") or "").strip())
+        if not speaker or not text:
+            continue
+        entry = by_speaker.setdefault(
+            speaker,
+            {
+                "speaker": speaker,
+                "start": float(seg.get("start", 0) or 0),
+                "end": float(seg.get("end", 0) or 0),
+                "segments": [],
+            },
+        )
+        entry["end"] = max(entry["end"], float(seg.get("end", entry["end"]) or entry["end"]))
+        entry["segments"].append(text)
+    summaries = []
+    for speaker, data in by_speaker.items():
+        joined = " ".join(data["segments"]).strip()
+        if not joined:
+            continue
+        chunks = merge_transcript_segments_for_notes(
+            [
+                {
+                    "start": data["start"],
+                    "end": data["end"],
+                    "speaker": speaker,
+                    "text": joined,
+                }
+            ],
+            target_chars=320,
+        )
+        excerpt = chunks[0]["text"] if chunks else joined
+        summaries.append(
+            {
+                "speaker": speaker,
+                "segment_count": len(data["segments"]),
+                "start": data["start"],
+                "end": data["end"],
+                "summary": summarize_speech_chunk(joined),
+                "excerpt": clip_note_text(excerpt, 220),
+            }
+        )
+    return sorted(summaries, key=lambda item: (-item["segment_count"], item["speaker"]))
+
+
 def build_speech_markdown(transcript: dict | None, video_path: Path, mode: str = "knowledge") -> dict:
     segments = normalize_segments(transcript)
     if not segments:
@@ -3056,8 +3225,8 @@ def build_speech_markdown(transcript: dict | None, video_path: Path, mode: str =
         )
         return {"mode": mode, "markdown": markdown, "segment_count": 0, "chunks": []}
 
-    full_text = normalize_known_video_terms(" ".join(seg["text"] for seg in segments).strip())
     chunks = merge_transcript_segments_for_notes(segments)
+    speaker_summaries = build_speaker_summaries(segments)
     if mode == "literal":
         lines = [
             "# 博主口播转写",
@@ -3068,11 +3237,23 @@ def build_speech_markdown(transcript: dict | None, video_path: Path, mode: str =
             "",
             "## 按时间整理",
         ]
+        if len(speaker_summaries) >= 2:
+            lines.extend(["", "## 说话人概览"])
+            for item in speaker_summaries:
+                lines.append(
+                    f"- {item['speaker']}（{format_timestamp(item['start'])} - {format_timestamp(item['end'])}，{item['segment_count']} 段）: {item['summary']}"
+                )
         for chunk in chunks:
             lines.append("")
             lines.append(f"### {format_timestamp(chunk['start'])} - {format_timestamp(chunk['end'])}")
             lines.append(chunk["text"])
-        return {"mode": mode, "markdown": "\n".join(lines), "segment_count": len(segments), "chunks": chunks}
+        return {
+            "mode": mode,
+            "markdown": "\n".join(lines),
+            "segment_count": len(segments),
+            "chunks": chunks,
+            "speaker_summaries": speaker_summaries,
+        }
 
     generated = build_generated_speech_points(chunks)
     core_points = generated["points"] or [summarize_speech_chunk(chunk["text"]) for chunk in chunks[:3]]
@@ -3104,6 +3285,13 @@ def build_speech_markdown(transcript: dict | None, video_path: Path, mode: str =
         lines.extend(f"- {point}" for point in case_points[:8])
     else:
         lines.append("- 未识别到稳定的案例或应用场景表述。")
+    if len(speaker_summaries) >= 2:
+        lines.extend(["", "## 说话人分工（基于转写标签）"])
+        for item in speaker_summaries:
+            lines.append(
+                f"- {item['speaker']}：{item['summary']}（{format_timestamp(item['start'])} - {format_timestamp(item['end'])}，{item['segment_count']} 段）"
+            )
+            lines.append(f"摘录：{item['excerpt']}")
     lines.extend(["", "## 原始口播摘录（带时间戳）"])
     for chunk in chunks:
         lines.append("")
@@ -3116,7 +3304,13 @@ def build_speech_markdown(transcript: dict | None, video_path: Path, mode: str =
         lines.append("")
         lines.append(f"**原文摘录:** {chunk['text']}")
 
-    return {"mode": mode, "markdown": "\n".join(lines), "segment_count": len(segments), "chunks": chunks}
+    return {
+        "mode": mode,
+        "markdown": "\n".join(lines),
+        "segment_count": len(segments),
+        "chunks": chunks,
+        "speaker_summaries": speaker_summaries,
+    }
 
 
 def attach_transcript_to_frames(frames: list[dict], transcript_segments: list[dict]) -> list[dict]:
@@ -3272,8 +3466,7 @@ def markdown_has_frontmatter(markdown: str) -> bool:
     return (markdown or "").lstrip("\ufeff").startswith("---\n")
 
 
-def build_obsidian_frontmatter(result: dict, note_type: str) -> str:
-    source = result.get("source_url") or result.get("video_path") or ""
+def collect_result_tags(result: dict, note_type: str) -> list[str]:
     tags = ["video-understanding", note_type.replace("_", "-")]
     if result.get("speech_only"):
         tags.append("speech")
@@ -3281,17 +3474,61 @@ def build_obsidian_frontmatter(result: dict, note_type: str) -> str:
         tags.append("document")
     if result.get("ocr_used"):
         tags.append("ocr")
+    if result.get("source_url"):
+        tags.append("web-video")
+    if "all-detected-changes" in str(result.get("sampling_strategy") or ""):
+        tags.append("change-sampling")
+    return tags
+
+
+def estimate_transcript_coverage(result: dict) -> str:
+    segments = result.get("transcript_segments") or []
+    duration = float(result.get("duration_seconds") or 0)
+    if not segments or duration <= 0:
+        return "none"
+    start = min(float(seg.get("start", 0) or 0) for seg in segments)
+    end = max(float(seg.get("end", start) or start) for seg in segments)
+    coverage = max(0.0, min(1.0, (end - start) / max(duration, 0.001)))
+    return f"{coverage:.3f}"
+
+
+def build_obsidian_aliases(note_type: str, result: dict) -> list[str]:
+    aliases = [note_type.replace("_", " ")]
+    source_name = Path(str(result.get("video_path") or "video")).stem.strip()
+    if source_name:
+        aliases.append(source_name)
+    return [alias for alias in aliases if alias]
+
+
+def build_obsidian_frontmatter(result: dict, note_type: str) -> str:
+    source = result.get("source_url") or result.get("video_path") or ""
+    tags = collect_result_tags(result, note_type)
+    aliases = build_obsidian_aliases(note_type, result)
+    created = datetime.datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S%z")
+    transcript_segments = result.get("transcript_segments") or []
+    speaker_count = len({(seg.get("speaker") or "").strip() for seg in transcript_segments if (seg.get("speaker") or "").strip()})
     lines = [
         "---",
         f'title: {yaml_escape(note_type.replace("_", " ").title())}',
         f'type: {yaml_escape(note_type)}',
+        f'created: {yaml_escape(created)}',
         f'source: {yaml_escape(source)}',
+        f'source_url: {yaml_escape(result.get("source_url", ""))}',
         f'video_path: {yaml_escape(result.get("video_path", ""))}',
         f'duration_seconds: {float(result.get("duration_seconds") or 0):.3f}',
+        f'model: {yaml_escape(result.get("model", ""))}',
         f'transcript_source: {yaml_escape(result.get("transcript_source", ""))}',
+        f'transcript_coverage: {yaml_escape(estimate_transcript_coverage(result))}',
+        f'speaker_count: {speaker_count}',
         f'sampling_mode: {yaml_escape(result.get("sampling_mode", ""))}',
-        "tags:",
+        f'sampling_strategy: {yaml_escape(result.get("sampling_strategy", ""))}',
+        f'note_type: {yaml_escape(note_type)}',
+        "aliases:",
     ]
+    lines.extend(f"  - {yaml_escape(alias)}" for alias in aliases)
+    lines.extend([
+        "tags:",
+    ])
     lines.extend(f"  - {tag}" for tag in tags)
     lines.extend(["---", ""])
     return "\n".join(lines)
@@ -3301,6 +3538,96 @@ def add_obsidian_frontmatter(markdown: str, result: dict, note_type: str) -> str
     if markdown_has_frontmatter(markdown):
         return markdown
     return build_obsidian_frontmatter(result, note_type) + (markdown or "").lstrip("\ufeff")
+
+
+def extract_frame_ocr_text(result: dict, timestamp: float) -> str:
+    for item in result.get("ocr_results") or []:
+        if abs(float(item.get("timestamp_seconds") or 0) - timestamp) <= 0.3:
+            return (item.get("text") or "").strip()
+    return ""
+
+
+def find_layout_diagnostic_for_frame(result: dict, timestamp: float) -> dict | None:
+    for item in result.get("layout_filter_diagnostics") or []:
+        if abs(float(item.get("timestamp_seconds") or 0) - timestamp) <= 0.3:
+            return item
+    return None
+
+
+def score_keyframe_candidate(frame: dict, result: dict, position: int, total: int) -> tuple[float, dict]:
+    timestamp = float(frame.get("timestamp_seconds") or 0)
+    ocr_text = extract_frame_ocr_text(result, timestamp)
+    diag = find_layout_diagnostic_for_frame(result, timestamp) or {}
+    keep_reason = str(diag.get("keep_reason") or "")
+    transcript_segments = []
+    for item in result.get("frame_transcript_alignment") or []:
+        if item.get("index") == frame.get("index"):
+            transcript_segments = item.get("transcript_segments") or []
+            break
+    score = 0.0
+    if position == 0 or position == total - 1:
+        score += 3.5
+    if position == total // 2:
+        score += 2.0
+    if ocr_text:
+        score += min(len(re.findall(r"[\u4e00-\u9fffA-Za-z0-9]", ocr_text)) / 50.0, 2.5)
+    if transcript_segments:
+        score += min(len(transcript_segments), 3) * 0.8
+    if keep_reason:
+        score += 1.2
+        if "chapter" in keep_reason.lower():
+            score += 1.2
+        if "title" in keep_reason.lower():
+            score += 0.8
+        if "anchor" in keep_reason.lower():
+            score += 0.6
+    if diag.get("meaningful_title"):
+        score += 0.8
+    if diag.get("chapter_nav_changed"):
+        score += 1.0
+    if diag.get("presenter_shot"):
+        score -= 0.8
+    if diag.get("same_chapter_duplicate"):
+        score -= 1.0
+    return score, {
+        "keep_reason": keep_reason,
+        "ocr_text": ocr_text,
+        "has_transcript_alignment": bool(transcript_segments),
+    }
+
+
+def select_keyframes_for_result(result: dict, limit: int = DEFAULT_KEYFRAME_MARKDOWN_LIMIT) -> list[dict]:
+    frames = result.get("frames_with_paths") or []
+    if not frames:
+        return []
+    if len(frames) <= limit:
+        scored = []
+        for position, frame in enumerate(frames):
+            score, meta = score_keyframe_candidate(frame, result, position, len(frames))
+            scored.append({**frame, **meta, "selection_score": round(score, 3)})
+        return scored
+    ranked = []
+    for position, frame in enumerate(frames):
+        score, meta = score_keyframe_candidate(frame, result, position, len(frames))
+        ranked.append({**frame, **meta, "selection_score": round(score, 3)})
+    ranked.sort(key=lambda item: item["selection_score"], reverse=True)
+    selected = []
+    used_indices = set()
+    anchor_positions = [0, len(frames) // 2, len(frames) - 1]
+    for anchor in anchor_positions:
+        if 0 <= anchor < len(frames):
+            frame = next((item for item in ranked if item.get("index") == frames[anchor].get("index")), None)
+            if frame and frame.get("index") not in used_indices:
+                selected.append(frame)
+                used_indices.add(frame.get("index"))
+    for item in ranked:
+        if len(selected) >= limit:
+            break
+        if item.get("index") in used_indices:
+            continue
+        selected.append(item)
+        used_indices.add(item.get("index"))
+    return sorted(selected, key=lambda item: float(item.get("timestamp_seconds") or 0))
 
 
 def copy_keyframes(frames: list[dict], keyframes_dir: Path) -> list[dict]:
@@ -3319,6 +3646,10 @@ def copy_keyframes(frames: list[dict], keyframes_dir: Path) -> list[dict]:
                 "timestamp_seconds": timestamp,
                 "path": str(dest),
                 "filename": filename,
+                "keep_reason": frame.get("keep_reason", ""),
+                "selection_score": frame.get("selection_score"),
+                "ocr_text": frame.get("ocr_text", ""),
+                "has_transcript_alignment": frame.get("has_transcript_alignment", False),
             }
         )
     return copied
@@ -3334,7 +3665,7 @@ def relative_markdown_path(target: str, markdown_path: Path | None) -> str:
         return target_path.as_posix()
 
 
-def build_keyframe_markdown(result: dict, markdown_path: Path | None = None, limit: int = 12) -> str:
+def build_keyframe_markdown(result: dict, markdown_path: Path | None = None, limit: int = DEFAULT_KEYFRAME_MARKDOWN_LIMIT) -> str:
     frames = result.get("keyframes") or []
     if not frames:
         return ""
@@ -3342,6 +3673,16 @@ def build_keyframe_markdown(result: dict, markdown_path: Path | None = None, lim
     for frame in frames[:limit]:
         rel = relative_markdown_path(frame["path"], markdown_path)
         ts = float(frame.get("timestamp_seconds") or 0)
+        note_bits = []
+        if frame.get("keep_reason"):
+            note_bits.append(f"保留原因：{frame['keep_reason']}")
+        if frame.get("ocr_text"):
+            compact = " ".join(str(frame["ocr_text"]).split())
+            note_bits.append(f"OCR：{clip_note_text(compact, 80)}")
+        lines.extend([f"### {format_timestamp(ts)}", ""])
+        if note_bits:
+            lines.append("- " + " | ".join(note_bits))
+            lines.append("")
         lines.extend([f"![Frame {frame.get('index')} @ {ts:.2f}s]({rel})", ""])
     return "\n".join(lines).strip()
 
@@ -3947,7 +4288,44 @@ def analyze(
             transcript=transcript,
         )
 
-        keyframes = copy_keyframes(frames, Path(copy_keyframes_dir).expanduser().resolve()) if copy_keyframes_dir and frames else []
+        result_preview = {
+            "duration_seconds": duration,
+            "video_path": str(video_path),
+            "source_url": None,
+            "sampling_mode": sampling_mode,
+            "sampling_strategy": describe_sampling_strategy(
+                duration=duration,
+                sample_seconds=sample_seconds,
+                max_frames=max_frames,
+                scene_detection=scene_detection and bool(scene_candidates),
+                actual_frames=len(frames),
+                sampling_mode=sampling_mode,
+                screen_layout_filter=screen_layout_filter,
+            ),
+            "speech_only": speech_only,
+            "doc_only": doc_only,
+            "ocr_used": use_ocr,
+            "ocr_results": ocr_results,
+            "layout_filter_diagnostics": layout_filter_diagnostics,
+            "frame_transcript_alignment": frame_alignment,
+            "frames_with_paths": [
+                {
+                    "index": frame["index"],
+                    "timestamp_seconds": frame["timestamp_seconds"],
+                    "path": frame["path"],
+                }
+                for frame in frames
+            ],
+            "transcript_segments": transcript_segments,
+            "transcript_source": transcript_source,
+            "model": model,
+        }
+        selected_keyframes = select_keyframes_for_result(result_preview) if frames else []
+        keyframes = (
+            copy_keyframes(selected_keyframes, Path(copy_keyframes_dir).expanduser().resolve())
+            if copy_keyframes_dir and selected_keyframes
+            else []
+        )
 
         return {
             "model": model,
@@ -4002,6 +4380,15 @@ def analyze(
             "document_markdown": document_markdown,
             "speech_markdown": speech_markdown,
             "keyframes": keyframes,
+            "selected_keyframe_count": len(selected_keyframes),
+            "frames_with_paths": [
+                {
+                    "index": frame["index"],
+                    "timestamp_seconds": frame["timestamp_seconds"],
+                    "path": frame["path"],
+                }
+                for frame in frames
+            ],
             "frames": [
                 {
                     "index": frame["index"],

@@ -2,17 +2,17 @@
 
 # 🎬 Video Understanding Skill
 
-Turn local videos into searchable, reusable, knowledge-base-ready Markdown.
+Understand local videos, direct video URLs, and webpage video links, then turn them into reusable knowledge Markdown.
 
-It listens to speech, inspects visual changes, reads on-screen text, and preserves timestamped evidence along the way.
+It combines transcript, OCR, visual-change sampling, document extraction, and timeline-aware reporting.
 
-[中文](README.md) | [Full Skill Guide](SKILL.md)
+[中文](README.md) | [Skill Guide](SKILL.md)
 
 ![Codex Skill](https://img.shields.io/badge/Codex-Skill-blue)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-yellow)
 ![Whisper](https://img.shields.io/badge/Local-faster--whisper-orange)
 ![OCR](https://img.shields.io/badge/OCR-Chinese%20%2B%20English-green)
-![License](https://img.shields.io/badge/License-MIT-lightgrey)
+![Markdown](https://img.shields.io/badge/Output-Knowledge%20Markdown-ff69b4)
 
 </div>
 
@@ -20,30 +20,22 @@ It listens to speech, inspects visual changes, reads on-screen text, and preserv
 
 ## Why This Exists
 
-Basic video summaries often stop at "sample a few frames and guess": speech and visuals drift apart, late-video content gets skipped, and documents or captions on screen are easy to miss.
+Many video summaries stop at “sample a few frames and guess.” That usually misses later sections, loses alignment between speech and visuals, and fails to turn on-screen documents or course pages into usable knowledge.
 
-`video-understanding` turns video analysis into a more reliable workflow: transcribe audio, sample visual changes, run OCR, extract document-like content, align everything on a timeline, and produce Markdown that can go straight into a knowledge base.
+`video-understanding` does not pretend to add magical native video reasoning. Instead, it builds a stable workflow:
 
-It is useful for:
-
-- Creator videos, courses, podcasts, interviews, and tutorials
-- Screen recordings, product demos, and software walkthroughs
-- Extracting visible documents, articles, notes, and course pages into Markdown
-- Turning videos into Obsidian, Notion, or personal knowledge-base material
-
----
-
-## ⚠️ Important Note
-
-This repository is safe to publish when it contains only source code and documentation.
-
-Do not commit local credentials, private configuration, downloaded models, binary tools, videos, transcripts, screenshots, or generated reports. The included `.gitignore` excludes `models/`, `vendor/`, `tools/`, `outputs/`, media files, and common local caches.
+- extract audio and transcribe speech
+- sample across the whole video, not just the opening frames
+- support “sample every meaningful page change” for screen recordings
+- run OCR on screen regions and document regions
+- extract visible documents into Markdown
+- align evidence into a timeline, report, and knowledge notes
 
 ---
 
-## 🌱 Beginner-Friendly Installation
+## Beginner-Friendly Installation
 
-If you are not comfortable with command-line setup, just give this repository link to your AI assistant or Codex and ask it to install the skill for you:
+If you do not want to set this up manually, just give the repository link to your AI assistant or Codex and ask it to install the skill:
 
 ```text
 https://github.com/Dublin1231/Video-Understanding-Skill
@@ -52,79 +44,51 @@ https://github.com/Dublin1231/Video-Understanding-Skill
 Example prompt:
 
 ```text
-Please install this Codex skill for me and check whether the local dependencies are available:
+Please install this Codex skill for me and check whether Python, FFmpeg, Whisper, and OCR dependencies are available:
 https://github.com/Dublin1231/Video-Understanding-Skill
 ```
 
-The assistant can place the skill in the right directory and check Python, FFmpeg, local transcription, and OCR dependencies for your machine.
-
 ---
 
-## 📸 Preview
-
-### 🎙️ Speech Knowledge Markdown
-
-```markdown
-# Speaker Notes As Knowledge Markdown
-
-## Core Ideas
-- Obsidian is the long-term memory layer for tasks, cards, time plans, and personal experience.
-- Claude Code is better for deep long-context work because it can organize existing knowledge-base content.
-- OpenClaw is better as a lightweight mobile entry point for ideas, links, logs, and tasks.
-
-## Original Speech Excerpts
-
-### 01:03 - 02:15 Knowledge Base As Long-Term Memory
-
-**Summary:** Use Obsidian to hold tasks, cards, and time notes so AI can read personal experience, goals, and working rules.
-
-**Excerpt:** ...
-```
-
-### 📄 Document Markdown
-
-```markdown
-# Document Content
-
-## Frame @ 62.23s
-
-Text recognized from the visible document region is preserved here.
-```
-
----
-
-## ✨ Features
+## Feature Overview
 
 | Feature | Description |
 | --- | --- |
-| 🔗 Video URL analysis | Supports local video paths, direct media URLs, and webpage video links supported by `yt-dlp` |
-| 🎙️ Speech transcription | Extract speaker, creator, or lecture audio from a video |
-| 🧠 Speech to knowledge Markdown | Turn transcripts into core ideas, workflows, cases, and timestamped excerpts |
-| 🎞️ Change-aware sampling | Sample frames based on page, layout, title, and chapter-navigation changes |
-| 🔎 Chinese + English OCR | Read text from screen recordings, course pages, and document views |
-| 📄 Document extraction | Convert visible articles, notes, slides, or documents into Markdown |
-| 🧭 Timeline alignment | Align frames, transcript segments, OCR evidence, and timestamps |
-| 🛟 Local fallback | Keep producing transcripts with local Whisper when remote transcription is unavailable |
+| 🔗 Video URL analysis | Supports local files, direct media URLs, and webpage video links supported by `yt-dlp` |
+| 🎙️ Speech transcription | Extract creator, lecturer, or presenter audio from a video |
+| 🧠 Speech to knowledge Markdown | Organize transcripts into ideas, methods, tools, cases, and timestamped excerpts |
+| 🖥️ Whole-video coverage sampling | Sample across the full duration, not just the beginning |
+| 🔄 Change-aware sampling | Capture meaningful page/layout changes for screen recordings |
+| 🧭 Chapter-nav understanding | Use title and bottom navigation cues to better detect real section changes |
+| 🔎 Chinese + English OCR | Read screen text, course pages, and visible documents |
+| 📄 Document extraction | Convert visible articles, notes, course pages, slides, and documents into Markdown |
+| 🪪 Rich Obsidian frontmatter | Generate stronger frontmatter ready for Obsidian |
+| 🖼️ Smarter keyframe selection | Prefer high-signal keyframes instead of copying every sampled frame |
+| 🧑‍🤝‍🧑 Speaker summaries | Add conservative speaker overviews only when transcript labels really exist |
+| 🧰 Local Whisper fallback | Fall back to local `faster-whisper` when remote transcription is unavailable |
 
 ---
 
-## 🧩 Workflow
+## Workflow
 
 ```mermaid
 flowchart LR
-  A["Local path / direct video URL / webpage video link"] --> B{"Resolve source"}
+  A["Local video / direct video URL / webpage video link"] --> B{"Resolve source"}
   B -->|"Local file"| C["Read video"]
-  B -->|"Direct media URL"| D["Download video file"]
-  B -->|"Webpage link"| E["Download via yt-dlp"]
+  B -->|"Direct URL"| D["Download video"]
+  B -->|"Webpage link"| E["Download with yt-dlp"]
+  E -->|"Douyin fails"| E2["douyin-downloader fallback"]
   C --> F["Extract audio"]
   D --> F
   E --> F
-  C --> G["Sample frames"]
+  E2 --> F
+  C --> G["Coverage sampling / change sampling"]
   D --> G
   E --> G
-  F --> H["Transcribe speech / local Whisper fallback"]
-  G --> I["Visual-change detection + OCR"]
-  H --> J["Timeline evidence"]
+  E2 --> G
+  F --> H["Remote transcription / local Whisper fallback"]
+  G --> I["OCR / title / chapter / layout analysis"]
+  H --> J["Timeline evidence alignment"]
   I --> J
   J --> K["Video report"]
   J --> L["Document Markdown"]
@@ -133,7 +97,7 @@ flowchart LR
 
 ---
 
-## 📦 Installation And Requirements
+## Requirements
 
 | Requirement | Required | Purpose |
 | --- | --- | --- |
@@ -144,7 +108,7 @@ flowchart LR
 | `yt-dlp` | Optional | Download webpage video links |
 | `pillow` | Optional | Image processing |
 | `pytesseract` | Optional | OCR |
-| Tesseract language data | Optional | Better Chinese + English OCR |
+| Tesseract Chinese/English data | Optional | Better OCR quality |
 
 Install Python packages:
 
@@ -152,21 +116,19 @@ Install Python packages:
 python -m pip install openai faster-whisper yt-dlp pillow pytesseract
 ```
 
-The first local transcription run may download a model into `models/`. That directory is ignored by Git.
-
 ---
 
-## 🧠 Model Configuration
+## Model And Runtime Setup
 
-This skill uses two model paths: one for listening to audio and one for visual/multimodal synthesis. If you only need speech-to-knowledge Markdown, you can run entirely through the local transcription path.
+Recommended setups:
 
-| Use Case | Recommended Setup | Notes |
+| Goal | Recommended Flags | Notes |
 | --- | --- | --- |
-| Transcribe speech into Markdown only | `--speech-only` + `--local-whisper-model small` | Best beginner path; stable, local, and does not upload frames |
-| Full video understanding report | `--model <your multimodal model>` | Combines visuals, OCR, speech, and timeline evidence |
-| Fallback when remote transcription fails | `--local-whisper-model small` | Automatically uses local Whisper when remote transcription is unavailable |
+| Speech-only notes | `--speech-only --local-whisper-model small` | Stable beginner path, mostly local |
+| Full video understanding | `--model <your multimodal model>` | Combines visuals, OCR, speech, and timeline evidence |
+| Remote transcription fallback | `--local-whisper-model small` | Automatically falls back to local Whisper |
 | Faster local transcription | `--local-whisper-model base` | Faster, usually less accurate |
-| More accurate local transcription | `--local-whisper-model medium` | More accurate, but slower and heavier |
+| More accurate local transcription | `--local-whisper-model medium` | Heavier and slower |
 
 Common flags:
 
@@ -176,71 +138,51 @@ Common flags:
 --local-whisper-model "small"
 ```
 
-Beginners can start with the defaults. If you are not sure which model, gateway, or local setup to use, give the repository link to an AI assistant and ask it to inspect your machine and generate the right command.
-
 ---
 
-## 🔑 API Key And Base URL Configuration
+## API Key And Base URL
 
-If you only use `--speech-only` with local Whisper, you do not need a remote API setup.  
-If you want full video understanding reports, remote transcription, or multimodal synthesis, configure your key and base URL as local environment variables.
+If you only use `--speech-only` with local Whisper, you do not need remote API access.  
+For full video understanding, remote transcription, or multimodal synthesis, configure local environment variables.
 
-### Windows PowerShell
-
-Temporary setup for the current PowerShell window:
+Temporary PowerShell setup:
 
 ```powershell
 $env:OPENAI_API_KEY = "<your_key>"
 $env:OPENAI_BASE_URL = "<your_base_url>"
 ```
 
-Persistent setup for the current Windows user:
+Persistent Windows user setup:
 
 ```powershell
 [Environment]::SetEnvironmentVariable("OPENAI_API_KEY", "<your_key>", "User")
 [Environment]::SetEnvironmentVariable("OPENAI_BASE_URL", "<your_base_url>", "User")
 ```
 
-Restart your terminal after setting persistent environment variables.
-
-### macOS / Linux
-
-Temporary setup for the current shell:
-
-```bash
-export OPENAI_API_KEY="<your_key>"
-export OPENAI_BASE_URL="<your_base_url>"
-```
-
-If you use the official API, you usually only need the key. If you use a compatible gateway or custom service, configure the base URL as well.
-
-### Safety Tips
-
-- Never write real secrets into README files, scripts, screenshots, or Git commits.
-- If you are unsure which base URL to use, give your provider documentation to an AI assistant and ask it to verify the setup.
-- After configuration, run `python scripts/capability_probe.py` to check whether the environment is detected correctly.
-
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
-Probe local capabilities:
+Probe your environment first:
 
 ```powershell
 python scripts/capability_probe.py
 ```
 
-Analyze a video:
+Analyze a local video:
 
 ```powershell
 python scripts/analyze_video_with_openai.py "C:\path\to\video.mp4" `
   --question "What is said in this video, and what happens on screen?" `
   --ocr `
+  --obsidian-frontmatter `
+  --copy-keyframes-dir "outputs\video-assets" `
+  --markdown-keyframes report `
   --report-md "outputs\video-report.md" `
   --report-json "outputs\video-report.json"
 ```
 
-You can also pass a video URL:
+Analyze a video URL:
 
 ```powershell
 python scripts/analyze_video_with_openai.py "https://example.com/video.mp4" `
@@ -249,13 +191,24 @@ python scripts/analyze_video_with_openai.py "https://example.com/video.mp4" `
   --report-md "outputs\video-report.md"
 ```
 
-The script first tries direct media download. If the URL is a webpage, it automatically falls back to `yt-dlp` when installed. Actual site support depends on `yt-dlp`, network access, login/cookies, course permissions, and whether the video is DRM-protected.
+---
 
-If webpage download fails, give the link to an AI assistant and ask it to install/configure `yt-dlp`, or download the video locally before analysis.
+## Choose By Goal
 
-### Obsidian frontmatter and keyframes
+| Goal | Recommended Use |
+| --- | --- |
+| Understand what is said and shown | `--ocr --report-md` |
+| Turn speaker audio into knowledge notes | `--speech-only --speech-md-mode knowledge --extract-speech-md <path>` |
+| Get a timestamped raw transcript | `--speech-only --speech-md-mode literal --extract-speech-md <path>` |
+| Extract a visible document or article | `--doc-only --doc-md-mode literal --extract-doc-md <path>` |
+| Analyze every meaningful page change | `--sampling-mode all-changes --scene-detection --screen-layout-filter` |
+| Let titles and bottom nav influence section changes | `--title-ocr-filter --chapter-nav-filter --same-chapter-dedupe-filter` |
 
-For notes that go directly into Obsidian, add:
+---
+
+## Obsidian Output
+
+For Obsidian-ready notes, add:
 
 ```powershell
 --obsidian-frontmatter `
@@ -263,127 +216,48 @@ For notes that go directly into Obsidian, add:
 --markdown-keyframes report
 ```
 
-`--obsidian-frontmatter` writes source, video path, duration, transcript source, sampling mode, and tags. `--markdown-keyframes report` references copied keyframes in the report only; use `--markdown-keyframes all` when speech and document notes should also include the same screenshots.
+Frontmatter now includes:
 
-For sites that require login state, such as short-video platforms, social platforms, course sites, or private content, the most reliable path is a Netscape-format `cookies.txt` file:
+- `source` / `source_url`
+- `video_path`
+- `duration_seconds`
+- `model`
+- `transcript_source`
+- `transcript_coverage`
+- `speaker_count`
+- `sampling_mode`
+- `sampling_strategy`
+- `aliases`
+- `tags`
 
-```powershell
-python scripts/analyze_video_with_openai.py "https://example.com/video-page" `
-  --cookies "C:\path\to\cookies.txt" `
-  --speech-only `
-  --extract-speech-md "outputs\speech-knowledge.md"
-```
+Keyframe output is also smarter now. Instead of blindly copying every sampled frame, it prefers:
 
-You can also ask `yt-dlp` to read cookies from a browser, but on newer Windows Chrome/Edge versions this can fail because of DPAPI / App-Bound Encryption:
-
-```powershell
-python scripts/analyze_video_with_openai.py "https://example.com/video-page" `
-  --cookies-from-browser chrome `
-  --speech-only `
-  --extract-speech-md "outputs\speech-knowledge.md"
-```
-
-If you are not sure which browser to use, let the script try common browsers automatically:
-
-```powershell
-python scripts/analyze_video_with_openai.py "https://example.com/video-page" `
-  --cookies-from-browser auto `
-  --speech-only `
-  --extract-speech-md "outputs\speech-knowledge.md"
-```
-
-You can also use `--auto-cookies` to try browser cookies automatically after a normal webpage download fails.
-
-If you see `Failed to decrypt with DPAPI`, the link is not the problem. Chrome/Edge local encryption blocked external cookie extraction. Use one of these recovery paths:
-
-- Export a Netscape-format `cookies.txt` for the current site with a trusted browser extension, then pass it with `--cookies "C:\path\to\cookies.txt"`.
-- If you are logged in with Firefox, try `--cookies-from-browser firefox`.
-- If this still fails, download the video as a local `.mp4` first, then analyze the local file.
-
-Do not commit `cookies.txt` to GitHub or share it publicly; it acts like a temporary login credential.
-
-### Export cookies.txt with a browser extension
-
-If you use a browser extension such as **Get cookies.txt LOCALLY**, follow this flow:
-
-1. Open the target video page in your browser and confirm the video can play.
-2. Click the **Get cookies.txt LOCALLY** extension icon.
-3. Confirm the popup title looks like `Get cookies.txt for https://www.douyin.com/...`, so you are exporting the target site.
-4. Set `Export Format` to **Netscape**.
-5. Click the blue **Export** button in the upper-left area to export only the current site's cookies.
-6. Do not click **Export All Cookies** because it exports cookies for every site.
-7. Save the file somewhere like `C:\Users\YourName\Downloads\www.douyin.com_cookies.txt`.
-
-Then pass it to the skill:
-
-```powershell
-python scripts/analyze_video_with_openai.py "https://www.douyin.com/video/7623595912924777780" `
-  --cookies "C:\Users\YourName\Downloads\www.douyin.com_cookies.txt" `
-  --ocr `
-  --report-md "outputs\web-video-report.md"
-```
-
-### Douyin-specific fallback
-
-If `yt-dlp` still fails for Douyin, you can use [jiji262/douyin-downloader](https://github.com/jiji262/douyin-downloader) as a dedicated fallback. This was tested locally with the same Douyin link and cookies file: `yt-dlp` failed, while douyin-downloader successfully downloaded the mp4.
-
-Prepare the tool once:
-
-```powershell
-git clone https://github.com/jiji262/douyin-downloader.git C:\Tools\douyin-downloader
-python -m pip install -r C:\Tools\douyin-downloader\requirements.txt
-```
-
-Then run:
-
-```powershell
-python scripts/analyze_video_with_openai.py "https://www.douyin.com/video/7623595912924777780" `
-  --cookies "C:\Users\YourName\Downloads\www.douyin.com_cookies.txt" `
-  --douyin-downloader-fallback `
-  --douyin-downloader-path "C:\Tools\douyin-downloader" `
-  --ocr `
-  --report-md "outputs\web-video-report.md"
-```
-
-Order of attempts: direct media download, `yt-dlp`, then douyin-downloader for Douyin URLs only. The final downloaded mp4 is passed into the normal analysis pipeline.
+- first / middle / last anchors
+- OCR-rich frames
+- stronger layout-change evidence
+- frames aligned with transcript context
 
 ---
 
-## 🧭 Choose By Goal
-
-| Your Goal | Recommended Use |
-| --- | --- |
-| Understand what is said and shown | Full video analysis with `--ocr` and `--report-md` |
-| Turn speaker audio into knowledge notes | `--speech-only --speech-md-mode knowledge` |
-| Get a timestamped raw transcript | `--speech-only --speech-md-mode literal` |
-| Extract a visible document or article | `--doc-only --doc-md-mode literal` |
-| Analyze every page change in a screen recording | `--sampling-mode all-changes --scene-detection --screen-layout-filter` |
-| Use chapter navigation or course menus as signals | Add `--title-ocr-filter --chapter-nav-filter --same-chapter-dedupe-filter` |
-
----
-
-## 🎙️ Speech To Knowledge Markdown
-
-Use this mode when you want to turn a creator, teacher, or presenter voice into a clean knowledge-base note.
+## Speech To Knowledge Markdown
 
 ```powershell
 python scripts/analyze_video_with_openai.py "C:\path\to\video.mp4" `
   --speech-only `
   --speech-md-mode knowledge `
-  --extract-speech-md "outputs\speech-knowledge.md" `
-  --report-json "outputs\speech-check.json"
+  --extract-speech-md "outputs\speech-knowledge.md"
 ```
 
-| Mode | Output |
-| --- | --- |
-| `knowledge` | Generated knowledge sections plus timestamped original excerpts |
-| `literal` | Timestamped transcript only |
+Notes:
+
+- `knowledge` generates structured knowledge notes
+- `literal` preserves the transcript by timestamp
+- if the transcription provider returns real speaker labels, the Markdown adds a conservative speaker overview section
+- if local Whisper fallback is used and no speaker labels exist, the skill does not fake diarization
 
 ---
 
-## 📄 Document Extraction To Markdown
-
-Use this mode when a video contains a document, article, note, course page, or slide being explained on screen.
+## Document Extraction To Markdown
 
 ```powershell
 python scripts/analyze_video_with_openai.py "C:\path\to\video.mp4" `
@@ -398,71 +272,58 @@ python scripts/analyze_video_with_openai.py "C:\path\to\video.mp4" `
   --report-json "outputs\document-check.json"
 ```
 
-| Mode | Use Case |
-| --- | --- |
-| `literal` | Preserve text that actually appears on screen |
-| `polished` | Reorganize extracted content into generated headings and knowledge sections |
+Notes:
 
-Use `literal` when you need screen-faithful text. Use `polished` only when generated headings are acceptable.
+- `literal` is better when you want screen-faithful extracted text
+- `polished` reorganizes content into more knowledge-base-like sections
+- document extraction is now more conservative and filters weak UI-heavy OCR frames more aggressively
+- repeated near-duplicate document pages are deduplicated before building Markdown
 
 ---
 
-## 🗂️ Project Structure
+## Cookies And Webpage Videos
 
-```text
-video-understanding/
-├── README.md
-├── README.en.md
-├── SKILL.md
-├── agents/
-│   └── openai.yaml
-├── references/
-│   ├── native-openai-path.md
-│   ├── openai-hybrid-path.md
-│   ├── prompt-templates.md
-│   └── timeline-pipeline.md
-└── scripts/
-    ├── analyze_video_with_openai.py
-    ├── build_analysis_brief.py
-    └── capability_probe.py
+For Douyin, course platforms, or sites that require login state, the most reliable path is a Netscape-format `cookies.txt`.
+
+If you use **Get cookies.txt LOCALLY**:
+
+1. Open the target video page and confirm it can play.
+2. Click the extension icon.
+3. Confirm the current site is the one you want.
+4. Set `Export Format` to `Netscape`.
+5. Click the blue `Export` button.
+6. Do not use `Export All Cookies`.
+7. Pass the exported `cookies.txt` file to the script.
+
+Example:
+
+```powershell
+python scripts/analyze_video_with_openai.py "https://www.douyin.com/video/7623595912924777780" `
+  --cookies "C:\Users\YourName\Downloads\www.douyin.com_cookies.txt" `
+  --douyin-downloader-fallback `
+  --ocr `
+  --report-md "outputs\web-video-report.md"
 ```
 
 ---
 
-## 🛠️ Troubleshooting
+## Current Status
 
-| Problem | Fix |
-| --- | --- |
-| Missing FFmpeg | Install FFmpeg and make sure it is available in your shell |
-| Remote transcription is unavailable | Use `--speech-only` for local transcription |
-| OCR quality is poor | Install Tesseract Chinese + English language data |
-| Output contains generated headings | Use `literal` mode when screen-faithful text is required |
-| Large files appear in Git status | Check `.gitignore`; do not commit local models, tools, dependencies, or outputs |
+Recently completed:
 
----
+- richer Obsidian frontmatter templates
+- smarter keyframe selection
+- more conservative document extraction and OCR cleanup
+- optional speaker summaries when real speaker labels are available
 
-## 🗺️ Roadmap
+Still worth improving:
 
-- More stable chapter-aware sampling for long videos
-- More conservative document extraction and OCR cleanup
-- Optional speaker diarization summaries
-- Richer Obsidian frontmatter templates
-- Smarter keyframe selection
+- even more stable chapter-aware long-video sampling
+- stronger OCR cleanup for low-resolution noisy captures
+- richer multi-speaker role summaries for interviews or panel content
 
 ---
 
-## 🤝 Contributing
+## License
 
-Issues and pull requests are welcome, especially for:
-
-- New video-type test cases
-- OCR correction dictionaries
-- Better Chinese knowledge-note rules
-- Cross-platform setup docs
-- Documentation and examples
-
----
-
-## 📜 License
-
-MIT License. Free to use, modify, and distribute.
+MIT License.
